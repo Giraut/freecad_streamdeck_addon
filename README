@@ -1,0 +1,93 @@
+                           FreeCAD Stream Deck Addon
+                          ---------------------------
+                                    v0.0.1
+
+
+This is an addon for FreeCAD to use an Elgato Stream Deck macropad as an entry
+device (https://www.elgato.com).
+
+The toolbar icons currently displayed in the FreeCAD window are mirrored onto
+the Stream Deck's keys and constantly updated as their availability and icons
+change.
+
+When a Stream Deck button is pressed, the corresponding toolbar tool is run
+as if clicked on directly in the main window.
+
+The toolbar icons are organized in pages. A toolbar occupies its own set of
+pages (only one page if the Stream Deck has enough buttons). Some toolbars are
+displayed constantly in all the pages, while some are always excluded.
+See configuration below.
+
+Two keys at the bottom right of the Stream Deck are dedicated to change from
+page to page.
+
+
+
+Installation
+------------
+
+Copy this git repo directory in your FreeCAD addon directory. Typically:
+
+Linux:   ~/.local/share/FreeCAD/Mod/
+Windows: %APPDATA%\FreeCAD\Mod\
+
+You also need to install the following Python modules (for instance using
+python3 -m pip install or python -m pip install):
+
+- streamdeck
+- Pillow
+
+
+
+Configuration
+-------------
+
+Edit parameters.py and change the values you want. The ones you're really
+interested in are:
+
+- exclude_toolbars_from_streamdeck
+
+  List of toolbar names you never want displayed on your StreamDeck regardless
+  of whether they're enabled in the main window, to reduce clutter.
+
+- toolbars_on_every_streamdeck_pages
+
+  List of toolbar names you want repeated in all the pages, so they're always
+  available regardless of the particular toolbar page you're in.
+
+  If your Stream Deck has enough keys - Stream Deck XL for example - you can
+  have more such permanently-displayed toolbar icons without multiplying the
+  number of pages.
+
+  If your Stream Deck has fewer keys, you may want to have fewer
+  permanently-displayed toolbar icons to free up more keys per page.
+
+- streamdeck_brightness
+
+  How bright the Stream Deck's display should be. Percentage from 0% to 100%.
+  The brighter, the more wear and burn in on the display of course.
+
+
+
+Notes
+-----
+
+- There is no provision for selecting a particular Stream Deck device if more
+  than one is connected. The addon opens the first one it finds.
+
+- The addon needs exclusive access to the Stream Deck device. It cannot coexist
+  with Elgato's Stream Deck software on Windows or with streamdeck-ui on Linux.
+
+- Tested with FreeCAD 0.22 on Linux and Windows, with a Stream Deck Mk2 and a
+  Stream Deck XL. It may or may not work with other models.
+
+- This is very alpha software. It's very rough on the edged and probably buggy.
+  Please bear with me as I make it nicer :)
+
+
+
+           ---------------------------------------------------------
+                   Bug reports? Questions? You can email me.
+                   Run this command to get my email address:
+           C=base64\ -d;$C<<<Y205emEybHpRSEoxYm1KdmVDNWpiMjBLCg==|$C
+           ---------------------------------------------------------
