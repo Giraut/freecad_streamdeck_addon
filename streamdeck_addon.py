@@ -29,6 +29,10 @@ class Action():
   """Single known displayed action descriptor
   """
 
+  re_title_in_tooltip = re.compile("<b>(.*?)</b>")
+
+
+
   def __init__(self, toolbar, action):
     """__init__ method
     """
@@ -36,6 +40,17 @@ class Action():
     self.toolbar = toolbar
     self.action = action
     self.enabled = action.isEnabled()
+    self.get_action_title()
+
+
+
+  def get_action_title(self):
+    """Extract the title of the action from its tooltip
+    """
+
+    m = self.re_title_in_tooltip.search(self.action.toolTip())
+
+    self.title = m[1].strip() if m else None
 
 
 
@@ -287,6 +302,7 @@ def update_current_toolbar_actions():
             if actions[n].toolbar != action_names_toolbars[n]:
               actions[n].toolbar = action_names_toolbars[n]
               actions[n].action = a
+              actions[n].get_action_title()
             actions[n].enabled = a.isEnabled()
 
     # Remove the name of the toolbar actions we didn't keep from the main
@@ -479,8 +495,9 @@ def streamdeck_update():
     for t in params.toolbars_on_every_streamdeck_pages:
       if t in toolbars:
         last_action_i = len(toolbar_actions[t]) - 1
-        keys.extend(["#[toolbar],{},{},,{},{},{}".
-			format(n, 1 if actions[n].enabled else 0, t,
+        keys.extend(["#[toolbar],{},{},{},{},{},{}".
+			format(n, 1 if actions[n].enabled else 0,
+				actions[n].title, t,
 				bc if i == 0 else "",
 				bc if i == last_action_i else "") \
 			for i, n in enumerate(toolbar_actions[t])])
@@ -511,7 +528,9 @@ def streamdeck_update():
       if t not in params.toolbars_on_every_streamdeck_pages:
 
         # Get the list of key strings for this toolbar
-        keys = ["{},{},{},,{},,".format(t, n, 1 if actions[n].enabled else 0, t)
+        keys = ["{},{},{},{},{},,".
+			format(t, n, 1 if actions[n].enabled else 0,
+				actions[n].title, t)
 		for n in toolbar_actions[t]]
 
         # Add all the keys to the pages
