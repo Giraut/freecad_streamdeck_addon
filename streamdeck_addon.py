@@ -8,6 +8,7 @@ import parameters as params
 
 import re
 import io
+import os
 import sys
 from time import time
 from PIL import Image, ImageDraw, ImageFont
@@ -334,9 +335,10 @@ def streamdeck_update():
 
   # Process Stream Deck key presses if a current page is displayed
   if current_page is not None:
-    for key in pressed_keys:
+    pageslist = current_page.split("\t")
 
-      n = current_page.split("\t")[key].split(",")[0]
+    for key in pressed_keys:
+      n = pageslist[key].split(",")[0]
 
       # Is the key occupied?
       if n:
@@ -549,6 +551,8 @@ def streamdeck_update():
 ## Entry point
 #
 is_win = sys.platform[0:3] == "win"
+install_dir = os.path.dirname(__file__)
+in_install_dir = lambda f: os.path.abspath(os.path.join(install_dir, f))
 
 streamdeck = None
 
@@ -573,10 +577,10 @@ _, font_text_min_y, _, font_text_max_y = font.getbbox("A!_j")
 margins = [font_text_max_y - font_text_min_y + 1] * 4
 
 # Preload icons for the Stream Deck keys
-prev_image = Image.open(params.prev_streamdeck_key_icon)
-next_image = Image.open(params.next_streamdeck_key_icon)
-blank_image = Image.open(params.blank_streamdeck_key_icon)
-broken_image = Image.open(params.broken_streamdeck_key_icon)
+prev_image = Image.open(in_install_dir(params.prev_streamdeck_key_icon))
+next_image = Image.open(in_install_dir(params.next_streamdeck_key_icon))
+blank_image = Image.open(in_install_dir(params.blank_streamdeck_key_icon))
+broken_image = Image.open(in_install_dir(params.broken_streamdeck_key_icon))
 
 # Get the main window
 main_window = Gui.getMainWindow()
