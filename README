@@ -3,7 +3,7 @@
                                     v0.0.1
 
 
-This is an addon for FreeCAD to use an Elgato Stream Deck macropad as an entry
+This is an addon for FreeCAD to use an Elgato Stream Deck macropad as an input
 device (https://www.elgato.com).
 
 The toolbar icons currently displayed in the FreeCAD window are mirrored onto
