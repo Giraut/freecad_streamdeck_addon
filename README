@@ -1,6 +1,6 @@
                            FreeCAD Stream Deck Addon
                           ---------------------------
-                                    v0.0.1
+                                    v0.0.2
 
 
 This is an addon for FreeCAD to use an Elgato Stream Deck macropad as an input
@@ -45,6 +45,16 @@ Configuration
 Edit parameters.py and change the values you want. The ones you're really
 interested in are:
 
+- use_streamdeck_device_type
+
+  The type of the Stream Deck device you want to use, if more than one device
+  is connected. Leave blank to use any type of device.
+
+- use_streamdeck_device_serial
+
+  The serial number of the Stream Deck device you want to use, if more than one
+  device is connected. Leave blank to use a device with any serial number.
+
 - exclude_toolbars_from_streamdeck
 
   List of toolbar names you never want displayed on your StreamDeck regardless
@@ -71,9 +81,6 @@ interested in are:
 
 Notes
 -----
-
-- There is no provision for selecting a particular Stream Deck device if more
-  than one is connected. The addon opens the first one it finds.
 
 - The addon needs exclusive access to the Stream Deck device. It cannot coexist
   with Elgato's Stream Deck software on Windows or with streamdeck-ui on Linux.

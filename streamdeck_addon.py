@@ -64,18 +64,97 @@ def open_streamdeck():
   """Try to open and reset the Stream Deck device
   """
   global streamdeck
+  global show_streamdecks_info
 
+  streamdeck = None
+  dev_sns = None
+
+  # Get a list of available Stream Deck devices and their serial numbers if
+  # possible
   try:
-    # Try to open the first device found
-    streamdeck = DeviceManager().enumerate()[0]
-    streamdeck.device.open()
-    streamdeck._reset_key_stream()
+    dev_sns = {d: None for d in DeviceManager().enumerate()}
+    if dev_sns and show_streamdecks_info:
+      print("Stream Deck devices found:")
 
-    # Set the brightness of the Stream Deck's screen
-    streamdeck.set_brightness(params.streamdeck_brightness)
+  except Exception as e:
+    if show_streamdecks_info:
+      print("Error finding available Stream Deck devices: {}".format(e))
+      return
 
-  except:
-    close_streamdeck()
+  if dev_sns is not None:
+
+    # Get the serial numbers of the available Stream Deck devices if possible
+    for streamdeck in dev_sns:
+      try:
+        streamdeck.device.open()
+        dev_sns[streamdeck] = streamdeck.get_serial_number()
+        streamdeck.device.close()
+        if show_streamdecks_info:
+          print('  Type "{}": serial number "{}"'.
+			format(streamdeck.deck_type(), dev_sns[streamdeck]))
+      except Exception as e:
+        if show_streamdecks_info:
+          print('  Type "{}": could not get serial number: {}'.
+			format(streamdeck.deck_type(), e))
+        try:
+          streamdeck.close()
+        except:
+          pass
+
+    # Try to match a device to open
+    for streamdeck in dev_sns:
+      if not params.use_streamdeck_device_type or \
+		streamdeck.deck_type().lower() == \
+			params.use_streamdeck_device_type.lower():
+        if not params.use_streamdeck_device_serial or \
+		(dev_sns[streamdeck] and \
+			dev_sns[streamdeck].lower() == \
+				params.use_streamdeck_device_serial.lower()):
+          if show_streamdecks_info:
+            print('Using Stream Deck type "{}"{}'.
+			format(streamdeck.deck_type(),
+				'with serial number "{}"'.
+					format(dev_sns[streamdeck]) \
+				if dev_sns[streamdeck] else ""))
+
+          # Open the device
+          try:
+            streamdeck.device.open()
+            streamdeck._reset_key_stream()
+
+          except Exception as e:
+            if show_streamdecks_info:
+              print('Error opening the device: {}"'.format(e))
+            try:
+              streamdeck.close()
+            except:
+              pass
+            streamdeck = None
+            break
+
+          # Set the brightness of the Stream Deck's screen
+          try:
+            streamdeck.set_brightness(params.streamdeck_brightness)
+          except Exception as e:
+            if show_streamdecks_info:
+              print('Error setting the brightness to {}: {}"'.
+			format(params.streamdeck_brightness, e))
+            try:
+              streamdeck.close()
+            except:
+              pass
+            streamdeck = None
+
+          break
+
+    else:
+      print("Stream Deck {}{}not found".
+		format("" if not params.use_streamdeck_device_type else \
+			'type "{}" '.
+				format(params.use_streamdeck_device_type),
+			"" if not params.use_streamdeck_device_serial else \
+			'with serial number "{}" '.
+				format(params.use_streamdeck_device_serial)))
 
 
 
@@ -105,6 +184,7 @@ def close_streamdeck():
       pass
 
     streamdeck = None
+    show_streamdecks_info = True
 
 
 
@@ -206,7 +286,7 @@ def update_current_toolbar_actions():
             # Update the known action as needed
             if actions[n].toolbar != action_names_toolbars[n]:
               actions[n].toolbar = action_names_toolbars[n]
-              actions[n].action = action
+              actions[n].action = a
             actions[n].enabled = a.isEnabled()
 
     # Remove the name of the toolbar actions we didn't keep from the main
@@ -321,16 +401,21 @@ def streamdeck_update():
     open_streamdeck()
     current_page = None
     key_states = None
+    show_streamdecks_info = False
 
-  # If the Stream Deck device is not open, reschedule ourselves and return
+  # If the Stream Deck device is not open, reschedule ourselves to run in a
+  # while to let the FreeCAD UI breathe a bit, it takes long enough to try
+  # opening a Stream Deck device that the FreeCAD UI freezes for a short time
+  # which is not desirable
   if streamdeck is None:
-    timer.start(timer_reschedule_every_ms)
+    print("Retrying in 30 seconds...")
+    timer.start(30 * 1000)
     return
 
   try:
     pressed_keys = get_streamdeck_keypresses()
   except:
-    streamdeck.close()
+    close_streamdeck()
     return
 
   # Process Stream Deck key presses if a current page is displayed
@@ -338,7 +423,7 @@ def streamdeck_update():
     pageslist = current_page.split("\t")
 
     for key in pressed_keys:
-      n = pageslist[key].split(",")[0]
+      n = pageslist[key].split(",")[1]
 
       # Is the key occupied?
       if n:
@@ -366,7 +451,14 @@ def streamdeck_update():
     kpp = streamdeck.KEY_COUNT	# Keys per page
 
     # Update the currently displayed toolbar actions
+    previous_toolbars = toolbars
     update_current_toolbar_actions()
+    new_toolbar = None
+    for t in toolbars:
+      if t not in previous_toolbars and \
+		t not in params.toolbars_on_every_streamdeck_pages:
+        new_toolbar = t
+        break
 
     # Compose the new pages to display on the Stream Deck: the pages are
     # described in a multiline string with each line in the following format:
@@ -374,7 +466,8 @@ def streamdeck_update():
     # <key0>\t<key1>\t...\t<keyKEY_COUNT-1>
     #
     # and each key is composed of:
-    # <action,0|1,[toptext],[bottomtext],[leftbracketcolor],[rightbracketcolor]
+    # <toolbarmarker><action,<0|1>,[toolbar],[toptext],[bottomtext],
+    #    [leftbracketcolor],[rightbracketcolor]
 
     # Create a pattern of one or more pages (hopefully just one) that contain
     # the keys for the actions of the toolbars that should be repeated on every
@@ -386,7 +479,7 @@ def streamdeck_update():
     for t in params.toolbars_on_every_streamdeck_pages:
       if t in toolbars:
         last_action_i = len(toolbar_actions[t]) - 1
-        keys.extend(["{},{},,{},{},{}".
+        keys.extend(["#[toolbar],{},{},,{},{},{}".
 			format(n, 1 if actions[n].enabled else 0, t,
 				bc if i == 0 else "",
 				bc if i == last_action_i else "") \
@@ -418,7 +511,7 @@ def streamdeck_update():
       if t not in params.toolbars_on_every_streamdeck_pages:
 
         # Get the list of key strings for this toolbar
-        keys = ["{},{},,{},,".format(n, 1 if actions[n].enabled else 0, t)
+        keys = ["{},{},{},,{},,".format(t, n, 1 if actions[n].enabled else 0, t)
 		for n in toolbar_actions[t]]
 
         # Add all the keys to the pages
@@ -429,28 +522,35 @@ def streamdeck_update():
 
             # Replace the previous page's [pagenext] placeholder, if any
             pages = pages.replace("[pagenext]",
-					"PAGENEXT,,,{},,{}".format(t, nkbc))
+					"{}#,PAGENEXT,,,{},,{}".
+						format(t, t, nkbc))
 
             # Add new pages
             pages += empty_new_pages
+
+            # Replace the [toolbar] placeholders in the new pages with the name
+            # of this toolbar
+            pages = pages.replace("[toolbar]", t)
 
             # If we have more than one [pagenext] placeholders in the new pages,
             # replaces all but the last one too
             cpn = pages.count("[pagenext]")
             if cpn > 1:
               pages = pages.replace("[pagenext]",
-					"PAGENEXT,,,{},,{}".format(t, nkbc),
+					"{}#,PAGENEXT,,,{},,{}".
+						format(t, t, nkbc),
 					cpn - 1)
 
             # Replace the first [pageprev] placeholder
             pages = pages.replace("[pageprev]",
-					"PAGEPREV,,,{},{},".
-					format(prev_page_toolbar, nkbc) \
+					"{}#,PAGEPREV,,,{},{},".
+					format(t, prev_page_toolbar, nkbc) \
 						 if prev_page_toolbar else \
-					",,,,{},".format(nkbc), 1)
+					"{}#,,,,,{},".format(t, nkbc), 1)
             # Replace the remaining [pageprev] placeholder if any
             pages = pages.replace("[pageprev]",
-					"PAGEPREV,,,{},{},".format(t, nkbc))
+					"{}#,PAGEPREV,,,{},{},".
+						format(t, t, nkbc))
 
             prev_page_toolbar = t
 
@@ -458,10 +558,10 @@ def streamdeck_update():
           pages = pages.replace("[key]", key, 1)
 
         # Add blank keys to complete the last page for this toolbar
-        pages = pages.replace("[key]", ",,,,,")
+        pages = pages.replace("[key]", "{},,,,,,".format(t))
 
-    # Replace the last [pagenext] placeholder if any, and strip empty lines
-    pages = pages.replace("[pagenext]", ",,,,,{}".format(nkbc)).strip("\n")
+    # Replace the last [pagenext] placeholder if any and strip the trailing LF
+    pages = pages[:-1].replace("[pagenext]", "{}#,,,,,,{}".format(t, nkbc))
 
     # Determine the page to be displayed / updated
     prev_current_page = current_page
@@ -473,36 +573,58 @@ def streamdeck_update():
 
     # We have pages
     else:
+      pageslist = pages.split("\n")
 
       # If we have no current page, pick the first one
       if not current_page:
-        current_page = pages.split("\n", 1)[0]
+        current_page = pageslist[0]
         current_page_no = 0
+
+      # If we have a new toolbar, switch to the first page containing keys
+      # marked with the name of the new toolbar
+      elif new_toolbar:
+        r = re.compile("(^|\t){},".format(new_toolbar))
+        for page_no, page in enumerate(pageslist):
+          if r.search(page):
+            current_page_no = page_no
+            current_page = page
+            break
 
       # If we have a current page, try to find a page in the new pages that
       # matches it wrt action names and placements, regardless of their enabled
       # status, and regardless of page navigation keys
       else:
-        pageslist = pages.split("\n")
-        r = re.compile("^" + "\t".join([("{}?[^\t]+".format(n) \
+        r = re.compile("^" + "\t".join([("{},{}?(,[^\t,]*){{5}}".format(t, n) \
 						if n in ("PAGEPREV",
 							"PAGENEXT") else \
-					"{},.?,{},{},{},{}".
-						format(n, tt, bt, lbc, rbc)) \
-					for n, _, tt, bt, lbc, rbc in \
+					"{},{},.?,{},{},{},{}".
+						format(t, n, tt, bt, lbc, rbc))\
+					for t, n, _, tt, bt, lbc, rbc in \
 						[ks.split(",") \
 					for ks in current_page.split("\t")]]) \
 			+ "$")
         for page_no, page in enumerate(pageslist):
           if r.match(page):
-            current_page = page
             current_page_no = page_no
+            current_page = page
             break
 
         else:
-          # We didn't find a matching page: default to the first page
-          current_page = pageslist[0]
-          current_page_no = 0
+          # We didn't find a matching page: try to switch to the first page
+          # containing keys marked with the name of the current toolbar
+          for page_no, page in enumerate(pageslist):
+            r = re.compile("(^|\t){},".
+				format(current_page.split(",", 1)[0].\
+					strip("#")))
+            if r.search(page):
+              current_page_no = page_no
+              current_page = page
+              break
+
+          else:
+            # We didn't find a matching toolbar: default to the first page
+            current_page = pageslist[0]
+            current_page_no = 0
 
     # Calculate the next time we need to update the Stream Deck keys
     next_actions_update_tstamp = now + params.check_toolbar_updates_every
@@ -521,7 +643,7 @@ def streamdeck_update():
           try:
             set_streamdeck_key(keyno, None)
           except:
-            streamdeck.close()
+            close_streamdeck()
             break
 
     # Update the keys to display the current page as needed
@@ -533,14 +655,14 @@ def streamdeck_update():
       for keyno, ks in enumerate(keystrings):
         if not prev_current_page or ks != prev_keystrings[keyno]:
 
-          n, _, tt, bt, lbc, rbc = ks.split(",")
+          _, n, _, tt, bt, lbc, rbc = ks.split(",")
           img = n if n in ("", "PAGEPREV", "PAGENEXT") else \
 		actions[n].icon_as_pil_image()
 
           try:
             set_streamdeck_key(keyno, img, tt, bt, lbc, rbc)
           except:
-            streamdeck.close()
+            close_streamdeck()
             break
 
   # Reschedule ourselves
@@ -555,6 +677,7 @@ install_dir = os.path.dirname(__file__)
 in_install_dir = lambda f: os.path.abspath(os.path.join(install_dir, f))
 
 streamdeck = None
+show_streamdecks_info = True
 
 timer_reschedule_every_ms = round(params.check_streamdeck_keypress_every * 1000)
 next_actions_update_tstamp = 0
