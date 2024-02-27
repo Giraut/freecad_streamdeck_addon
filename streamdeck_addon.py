@@ -29,10 +29,6 @@ class Action():
   """Single known displayed action descriptor
   """
 
-  re_title_in_tooltip = re.compile("<b>(.*?)</b>")
-
-
-
   def __init__(self, toolbar, action):
     """__init__ method
     """
@@ -40,17 +36,7 @@ class Action():
     self.toolbar = toolbar
     self.action = action
     self.enabled = action.isEnabled()
-    self.get_action_title()
-
-
-
-  def get_action_title(self):
-    """Extract the title of the action from its tooltip
-    """
-
-    m = self.re_title_in_tooltip.search(self.action.toolTip())
-
-    self.title = m[1].strip() if m else None
+    self.title = action.iconText()
 
 
 
@@ -255,13 +241,19 @@ def update_current_toolbar_actions():
 			for t in main_window.findChildren(QtGui.QToolBar) \
 			if not t.isHidden()]
 
-    # Get the ordered list of visible toolbar names that aren't excluded from
-    # the Stream Deck in the parameters, and toolbar actions associated with
-    # the current workbench
+    # get the list of all known actions in the GUI
+    all_actions = main_window.findChildren(QtGui.QAction)
+
+    # Get the ordered list of visible toolbar names associated with the current
+    # workbench that aren't excluded from the Stream Deck in the parameters
     toolbars = [t for t in workbench.listToolbars() \
 			if t in vis_toolbars and \
 			t not in params.exclude_toolbars_from_streamdeck]
+
+    # Get the ordered list of toolbar actions names we want to mirror on the
+    # Stream Deck
     toolbar_actions = workbench.getToolbarItems()
+
     action_names_toolbars = {a: t for t in toolbars for a in toolbar_actions[t]}
 
     # Remove actions that aren't displayed anymore
@@ -269,15 +261,15 @@ def update_current_toolbar_actions():
       if a not in action_names_toolbars:
         del(actions[a])
 
-    # Search the known actions that bear the name of the currently displayed
-    # actions
+    # Search the known actions that bear the name of the toolbar actions we want
+    # to mirror on the Stream Deck
     processed_actions_ctr = {}
-    for a in main_window.findChildren(QtGui.QAction):
+    for a in all_actions:
 
       # Ignore actions with no name, separators, actions that don't have an icon
       # associated with them and actions that aren't visible in the menu
       n = a.objectName()
-      if not n or n == "Separator" or a.icon is None or \
+      if not n or a.isSeparator() or a.icon is None or \
 		not a.isIconVisibleInMenu():
         continue
 
@@ -302,7 +294,7 @@ def update_current_toolbar_actions():
             if actions[n].toolbar != action_names_toolbars[n]:
               actions[n].toolbar = action_names_toolbars[n]
               actions[n].action = a
-              actions[n].get_action_title()
+              actions[n].title = iconText()
             actions[n].enabled = a.isEnabled()
 
     # Remove the name of the toolbar actions we didn't keep from the main
