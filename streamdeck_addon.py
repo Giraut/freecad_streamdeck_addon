@@ -37,6 +37,7 @@ class Action():
     self.action = action
     self.enabled = action.isEnabled()
     self.title = action.iconText()
+    self.iconhash = hash(action.icon())
 
 
 
@@ -295,6 +296,7 @@ def update_current_toolbar_actions():
               actions[n].toolbar = action_names_toolbars[n]
               actions[n].action = a
               actions[n].title = iconText()
+            actions[n].iconhash = hash(a.icon())
             actions[n].enabled = a.isEnabled()
 
     # Remove the name of the toolbar actions we didn't keep from the main
@@ -474,8 +476,9 @@ def streamdeck_update():
     # <key0>\t<key1>\t...\t<keyKEY_COUNT-1>
     #
     # and each key is composed of:
-    # <toolbarmarker><action,<0|1>,[toolbar],[toptext],[bottomtext],
-    #    [leftbracketcolor],[rightbracketcolor]
+    # <toolbarmarker>,[action],[0|1],[iconhash],[toptext],[bottomtext],
+    #    [leftbracketcolor],[rightbracketcolor],
+    #
 
     # Create a pattern of one or more pages (hopefully just one) that contain
     # the keys for the actions of the toolbars that should be repeated on every
@@ -487,8 +490,9 @@ def streamdeck_update():
     for t in params.toolbars_on_every_streamdeck_pages:
       if t in toolbars:
         last_action_i = len(toolbar_actions[t]) - 1
-        keys.extend(["#[toolbar],{},{},{},{},{},{}".
+        keys.extend(["#[toolbar],{},{},{},{},{},{},{}".
 			format(n, 1 if actions[n].enabled else 0,
+				actions[n].iconhash,
 				actions[n].title, t,
 				bc if i == 0 else "",
 				bc if i == last_action_i else "") \
@@ -520,8 +524,9 @@ def streamdeck_update():
       if t not in params.toolbars_on_every_streamdeck_pages:
 
         # Get the list of key strings for this toolbar
-        keys = ["{},{},{},{},{},,".
-			format(t, n, 1 if actions[n].enabled else 0,
+        keys = ["{},{},{},{},{},{},,".
+			format(t, n, actions[n].iconhash,
+				1 if actions[n].enabled else 0,
 				actions[n].title, t)
 		for n in toolbar_actions[t]]
 
@@ -533,7 +538,7 @@ def streamdeck_update():
 
             # Replace the previous page's [pagenext] placeholder, if any
             pages = pages.replace("[pagenext]",
-					"{}#,PAGENEXT,,,{},,{}".
+					"{}#,PAGENEXT,,,,{},,{}".
 						format(t, t, nkbc))
 
             # Add new pages
@@ -548,19 +553,19 @@ def streamdeck_update():
             cpn = pages.count("[pagenext]")
             if cpn > 1:
               pages = pages.replace("[pagenext]",
-					"{}#,PAGENEXT,,,{},,{}".
+					"{}#,PAGENEXT,,,,{},,{}".
 						format(t, t, nkbc),
 					cpn - 1)
 
             # Replace the first [pageprev] placeholder
             pages = pages.replace("[pageprev]",
-					"{}#,PAGEPREV,,,{},{},".
+					"{}#,PAGEPREV,,,,{},{},".
 					format(t, prev_page_toolbar, nkbc) \
 						 if prev_page_toolbar else \
-					"{}#,,,,,{},".format(t, nkbc), 1)
+					"{}#,,,,,,{},".format(t, nkbc), 1)
             # Replace the remaining [pageprev] placeholder if any
             pages = pages.replace("[pageprev]",
-					"{}#,PAGEPREV,,,{},{},".
+					"{}#,PAGEPREV,,,,{},{},".
 						format(t, t, nkbc))
 
             prev_page_toolbar = t
@@ -569,10 +574,10 @@ def streamdeck_update():
           pages = pages.replace("[key]", key, 1)
 
         # Add blank keys to complete the last page for this toolbar
-        pages = pages.replace("[key]", "{},,,,,,".format(t))
+        pages = pages.replace("[key]", "{},,,,,,,".format(t))
 
     # Replace the last [pagenext] placeholder if any and strip the trailing LF
-    pages = pages[:-1].replace("[pagenext]", "{}#,,,,,,{}".format(t, nkbc))
+    pages = pages[:-1].replace("[pagenext]", "{}#,,,,,,,{}".format(t, nkbc))
 
     # Determine the page to be displayed / updated
     prev_current_page = current_page
@@ -603,14 +608,14 @@ def streamdeck_update():
 
       # If we have a current page, try to find a page in the new pages that
       # matches it wrt action names and placements, regardless of their enabled
-      # status, and regardless of page navigation keys
+      # status, regardless of their icons and regardless of page navigation keys
       else:
         r = re.compile("^" + "\t".join([("{},{}?(,[^\t,]*){{5}}".format(t, n) \
 						if n in ("PAGEPREV",
 							"PAGENEXT") else \
-					"{},{},.?,{},{},{},{}".
+					"{},{},.?,.?,{},{},{},{}".
 						format(t, n, tt, bt, lbc, rbc))\
-					for t, n, _, tt, bt, lbc, rbc in \
+					for t, n, _, _, tt, bt, lbc, rbc in \
 						[ks.split(",") \
 					for ks in current_page.split("\t")]]) \
 			+ "$")
@@ -666,7 +671,7 @@ def streamdeck_update():
       for keyno, ks in enumerate(keystrings):
         if not prev_current_page or ks != prev_keystrings[keyno]:
 
-          _, n, _, tt, bt, lbc, rbc = ks.split(",")
+          _, n, _, _, tt, bt, lbc, rbc = ks.split(",")
           img = n if n in ("", "PAGEPREV", "PAGENEXT") else \
 		actions[n].icon_as_pil_image()
 
