@@ -298,7 +298,7 @@ def update_current_toolbar_actions():
             if actions[n].toolbar != action_names_toolbars[n]:
               actions[n].toolbar = action_names_toolbars[n]
               actions[n].action = a
-              actions[n].title = iconText()
+              actions[n].title = a.iconText()
             actions[n].iconhash = hash(a.icon())
             actions[n].enabled = a.isEnabled()
 
