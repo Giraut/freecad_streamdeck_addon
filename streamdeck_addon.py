@@ -10,6 +10,7 @@ import re
 import io
 import os
 import sys
+from copy import copy
 from time import time
 from PIL import Image, ImageDraw, ImageFont
 
@@ -227,40 +228,42 @@ def update_current_toolbar_actions():
   global toolbar_actions
   global actions
 
-  # Get the current workbench and associated ordered list of toolbar names and
-  # toolbar action names
-  try:
-    workbench = Gui.activeWorkbench()
-  except:
-    workbench = None
+  all_actions = []
+  toolbars.clear()
+  toolbar_actions.clear()
 
-  # Is there a current workbench?
-  if workbench is not None:
+  # Get the list of toolbars
+  for toolbar in main_window.findChildren(QtGui.QToolBar):
 
-    # Get the list of visible toolbar names
-    vis_toolbars = [t.objectName() \
-			for t in main_window.findChildren(QtGui.QToolBar) \
-			if not t.isHidden()]
+    # Should we keep or ignore this toolbar?
+    t = toolbar.objectName()
+    if not toolbar.isHidden() and \
+		t not in params.exclude_toolbars_from_streamdeck:
 
-    # get the list of all known actions in the GUI
-    all_actions = main_window.findChildren(QtGui.QAction)
+      # Keep the toolbar
+      toolbars.append(t)
 
-    # Get the ordered list of visible toolbar names associated with the current
-    # workbench that aren't excluded from the Stream Deck in the parameters
-    toolbars = [t for t in workbench.listToolbars() \
-			if t in vis_toolbars and \
-			t not in params.exclude_toolbars_from_streamdeck]
+      # Get the list of buttons in this toolbar
+      for button in toolbar.findChildren(QtGui.QToolButton):
 
-    # Get the ordered list of toolbar actions names we want to mirror on the
-    # Stream Deck
-    toolbar_actions = workbench.getToolbarItems()
+        # Get the list of actions associated with this button
+        new_action_names = []
+        for action in button.actions():
+
+          # Get the name of the action
+          n = action.data()
+
+          # keep the action if it has a name
+          if n:
+            all_actions.append(action)
+            new_action_names.append(n)
+
+        if new_action_names:
+          if t not in toolbar_actions:
+            toolbar_actions[t] = []
+          toolbar_actions[t].extend(new_action_names)
 
     action_names_toolbars = {a: t for t in toolbars for a in toolbar_actions[t]}
-
-    # Remove actions that aren't displayed anymore
-    for a in list(actions):
-      if a not in action_names_toolbars:
-        del(actions[a])
 
     # Search the known actions that bear the name of the toolbar actions we want
     # to mirror on the Stream Deck
@@ -269,7 +272,7 @@ def update_current_toolbar_actions():
 
       # Ignore actions with no name, separators, actions that don't have an icon
       # associated with them and actions that aren't visible in the menu
-      n = a.objectName()
+      n = a.data()
       if not n or a.isSeparator() or a.icon is None or \
 		not a.isIconVisibleInMenu():
         continue
@@ -430,7 +433,7 @@ def streamdeck_update():
 
   # Process Stream Deck key presses if a current page is displayed
   if current_page is not None:
-    pageslist = current_page.split("\t")
+    pageslist = current_page.split(";")
 
     for key in pressed_keys:
       n = pageslist[key].split(",")[1]
@@ -461,7 +464,7 @@ def streamdeck_update():
     kpp = streamdeck.KEY_COUNT	# Keys per page
 
     # Update the currently displayed toolbar actions
-    previous_toolbars = toolbars
+    previous_toolbars = copy(toolbars)
     update_current_toolbar_actions()
     new_toolbar = None
     for t in toolbars:
@@ -473,7 +476,7 @@ def streamdeck_update():
     # Compose the new pages to display on the Stream Deck: the pages are
     # described in a multiline string with each line in the following format:
     #
-    # <key0>\t<key1>\t...\t<keyKEY_COUNT-1>
+    # <key0>;<key1>;...;<keyKEY_COUNT-1>
     #
     # and each key is composed of:
     # <toolbarmarker>,[action],[0|1],[iconhash],[toptext],[bottomtext],
@@ -503,17 +506,17 @@ def streamdeck_update():
     while nbkeys > kpp - 3:	# The last page of the new empty pages should
 				# have 2 slots left for the page navigation keys
 				# and 1 empty slot
-      empty_new_pages += "\t".join(keys[:kpp - 2])
-      empty_new_pages += "\t[pageprev]\t[pagenext]\n"	# Placeholders
+      empty_new_pages += ";".join(keys[:kpp - 2])
+      empty_new_pages += ";[pageprev];[pagenext]\n"	# Placeholders
       keys = keys[kpp - 2:]
       nbkeys -= kpp - 2
 
-    empty_new_pages += "\t".join(keys)
+    empty_new_pages += ";".join(keys)
     if kpp - nbkeys - 2:
-      empty_new_pages += "\t"
-    empty_new_pages += "\t".join(["[key]" for _ in \
+      empty_new_pages += ";"
+    empty_new_pages += ";".join(["[key]" for _ in \
 			range(kpp - nbkeys - 2)])	# Placeholders
-    empty_new_pages += "\t[pageprev]\t[pagenext]\n"	# Placeholders
+    empty_new_pages += ";[pageprev];[pagenext]\n"	# Placeholders
 
     # Create the pages of action keys
     pages = ""
@@ -525,9 +528,8 @@ def streamdeck_update():
 
         # Get the list of key strings for this toolbar
         keys = ["{},{},{},{},{},{},,".
-			format(t, n, actions[n].iconhash,
-				1 if actions[n].enabled else 0,
-				actions[n].title, t)
+			format(t, n, 1 if actions[n].enabled else 0,
+				actions[n].iconhash, actions[n].title, t)
 		for n in toolbar_actions[t]]
 
         # Add all the keys to the pages
@@ -599,7 +601,7 @@ def streamdeck_update():
       # If we have a new toolbar, switch to the first page containing keys
       # marked with the name of the new toolbar
       elif new_toolbar:
-        r = re.compile("(^|\t){},".format(new_toolbar))
+        r = re.compile("(^|;){},".format(new_toolbar))
         for page_no, page in enumerate(pageslist):
           if r.search(page):
             current_page_no = page_no
@@ -607,17 +609,19 @@ def streamdeck_update():
             break
 
       # If we have a current page, try to find a page in the new pages that
-      # matches it wrt action names and placements, regardless of their enabled
-      # status, regardless of their icons and regardless of page navigation keys
+      # matches it with regard to action names and placements, regardless of
+      # their enabled status, regardless of their icons and regardless of page
+      # navigation keys
       else:
-        r = re.compile("^" + "\t".join([("{},{}?(,[^\t,]*){{5}}".format(t, n) \
+        r = re.compile("^" + ";".join([("{},({})?(,[^;,]*){{6}}".
+						format(t, n) \
 						if n in ("PAGEPREV",
 							"PAGENEXT") else \
-					"{},{},.?,.?,{},{},{},{}".
+					"{},{},.?,.*?,{},{},{},{}".
 						format(t, n, tt, bt, lbc, rbc))\
 					for t, n, _, _, tt, bt, lbc, rbc in \
 						[ks.split(",") \
-					for ks in current_page.split("\t")]]) \
+					for ks in current_page.split(";")]]) \
 			+ "$")
         for page_no, page in enumerate(pageslist):
           if r.match(page):
@@ -629,7 +633,7 @@ def streamdeck_update():
           # We didn't find a matching page: try to switch to the first page
           # containing keys marked with the name of the current toolbar
           for page_no, page in enumerate(pageslist):
-            r = re.compile("(^|\t){},".
+            r = re.compile("(^|;){},".
 				format(current_page.split(",", 1)[0].\
 					strip("#")))
             if r.search(page):
@@ -664,9 +668,9 @@ def streamdeck_update():
 
     # Update the keys to display the current page as needed
     else:
-      keystrings = current_page.split("\t")
+      keystrings = current_page.split(";")
       if prev_current_page:
-        prev_keystrings = prev_current_page.split("\t")
+        prev_keystrings = prev_current_page.split(";")
 
       for keyno, ks in enumerate(keystrings):
         if not prev_current_page or ks != prev_keystrings[keyno]:
