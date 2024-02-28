@@ -216,8 +216,9 @@ def close_streamdeck():
 
 
 def get_streamdeck_keypresses():
-  """Detect key presses (i.e. keys going from up to down). Return a list of
-  detected key presses.
+  """Detect short key presses - i.e. keys going back up after being down for a
+  short time - or long key presses - i.e. keys staying down for a long time.
+  Return list of (is_long_press, keyno) tuples
   """
 
   global streamdeck
