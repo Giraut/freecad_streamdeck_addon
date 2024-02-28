@@ -853,6 +853,7 @@ def streamdeck_update():
 
 ## Entry point
 #
+
 is_win = sys.platform[0:3] == "win"
 install_dir = os.path.dirname(__file__)
 in_install_dir = lambda f: os.path.abspath(os.path.join(install_dir, f))
