@@ -1,6 +1,6 @@
                            FreeCAD Stream Deck Addon
                           ---------------------------
-                                    v0.0.3
+                                    v0.0.4
 
 
 This is an addon for FreeCAD to use an Elgato Stream Deck macropad as an input
@@ -76,6 +76,23 @@ interested in are:
 
   How bright the Stream Deck's display should be. Percentage from 0% to 100%.
   The brighter, the more wear and burn in on the display of course.
+
+
+
+Usage
+-----
+
+The toolbar icons are mirrored onto the Stream Deck keys. There are usually
+more toolbar buttons than Stream Deck keys available, so the icons are
+organized in pages on the Stream Deck. Use the left and right arrow keys to
+change pages.
+
+The permanently-displayed toolbar icons are displayed between blue brackets.
+They are available in all the pages.
+
+Toolbar icons that have a submenu attached to them are displayed between red
+brackets. Long-pressing such an icon will expand it. Long-pressing it again
+or any of the submenu icons will collapse it back.
 
 
 

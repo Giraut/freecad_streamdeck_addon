@@ -12,13 +12,18 @@ use_streamdeck_device_serial = ""	# E.g. "A00NA325307HF5"
 					# "" for any device serial number
 
 check_streamdeck_keypress_every = 0.1 #s
+streamdeck_key_long_press_duration = 0.5 #s
+
 check_toolbar_updates_every = 0.5 #s
 
-exclude_toolbars_from_streamdeck = ["Workbench", "Help", "Navigation"]
-toolbars_on_every_streamdeck_pages = ["Edit", "View"]
+exclude_toolbars_from_streamdeck = ["Help", "Navigation"]
 
-brackets_color_for_toolbar_on_every_streamdeck_page = "red"
+#toolbars_on_every_streamdeck_page = ["Edit", "View"]	# Ok for Stream Deck XL
+toolbars_on_every_streamdeck_page = ["Edit"]		# Ok for smaller Deck
+
+brackets_color_for_toolbars_on_every_streamdeck_page = "blue"
 brackets_color_for_streamdeck_page_navigation_keys = "blue"
+brackets_color_for_expandable_tool_buttons = "red"
 
 streamdeck_key_text_font_filename_linux = "OpenSans-Regular.ttf"
 streamdeck_key_text_font_filename_windows = "arial.ttf"
