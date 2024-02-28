@@ -30,9 +30,11 @@ class Action():
   """Single known displayed action descriptor
   """
 
-  def __init__(self, toolbar, action, issubactionof = None):
+  def __init__(self, name, toolbar, action, issubactionof = None):
     """__init__ method
     """
+
+    self.name = name
 
     self.toolbar = toolbar
     self.action = action
@@ -354,7 +356,7 @@ def update_current_toolbar_actions():
             # already known and connect its changed signal to our callback,
             # otherwise update the known action
             if n not in actions:
-              actions[n] = Action(t, action)
+              actions[n] = Action(n, t, action)
               action.changed.connect(action_changed)
             else:
               actions[n].update(t, action)
@@ -391,7 +393,7 @@ def update_current_toolbar_actions():
                     # already known and connect its changed signal to our
                     # callback, otherwise update the known action
                     if sn not in actions:
-                      actions[sn] = Action(t, subaction, issubactionof = n)
+                      actions[sn] = Action(sn, t, subaction, issubactionof = n)
                       subaction.changed.connect(action_changed)
                     else:
                       actions[sn].update(t, subaction)
@@ -495,6 +497,8 @@ def streamdeck_update():
   global streamdeck
   global current_page
   global current_page_no
+  global last_action_pressed
+
   global key_states_tstamps
 
   global pages
@@ -530,7 +534,10 @@ def streamdeck_update():
     pages = []
 
     current_page = None
+    last_action_pressed = None
+
     key_states_tstamps = None
+
     show_streamdecks_info = False
 
     # Print out a bit of help
@@ -553,6 +560,7 @@ def streamdeck_update():
     keystrings = current_page.split(";")
 
     for is_long_press, key in pressed_keys:
+
       n = keystrings[key].split("~")[1]
 
       # Is the key occupied?
@@ -560,6 +568,7 @@ def streamdeck_update():
 
         # Change the page
         if n in ("PAGEPREV", "PAGENEXT"):
+          last_action_pressed = None
 
           current_page_no = current_page_no + (-1 if n == "PAGEPREV" else +1)
           current_page_no = min(len(pages) - 1, max(0, current_page_no))
@@ -569,28 +578,32 @@ def streamdeck_update():
 
           update_streamdeck_keys = True
 
-        # Was it a long press?
-        elif is_long_press:
+        # Act upon a real action
+        else:
+          last_action_pressed = actions[n]
 
-          # If the action is expandable, toggle its expansion and force-rebuild
-          # all the pages
-          if n in expanded_actions:
-            expanded_actions[n] = not expanded_actions[n]
-            update_actions = True
-            next_actions_update_tstamp = 0
+          # Long key press?
+          if is_long_press:
 
-          # If the action is a subaction of another action toggle the parent
-          # action's expansion and force-rebuild all the pages
-          elif actions[n].issubactionof is not None and \
+            # If the action is expandable, toggle its expansion and
+            # force-rebuild all the pages
+            if n in expanded_actions:
+              expanded_actions[n] = not expanded_actions[n]
+              update_actions = True
+              next_actions_update_tstamp = 0
+
+            # If the action is a subaction of another action toggle the parent
+            # action's expansion and force-rebuild all the pages
+            elif actions[n].issubactionof is not None and \
 		actions[n].issubactionof in expanded_actions:
-            expanded_actions[actions[n].issubactionof] = \
+              expanded_actions[actions[n].issubactionof] = \
 				not expanded_actions[actions[n].issubactionof]
-            update_actions = True
-            next_actions_update_tstamp = 0
+              update_actions = True
+              next_actions_update_tstamp = 0
 
-        # Short press: if the action is enabled, execute it
-        elif actions[n].enabled:
-          actions[n].action.trigger()
+          # Short key press: if the action is enabled, execute it
+          elif actions[n].enabled:
+            actions[n].action.trigger()
 
   # Should we get the current state of the FreeCAD toolbars and update the
   # Stream Deck pages?
@@ -745,36 +758,34 @@ def streamdeck_update():
 
       # Determine the page to be displayed / updated
       prev_current_page = current_page
+      current_page_updated = False
 
-      # If we have no pages, display nothing
-      if not pages:
-        current_page = None
-        current_page_no = None
-
-      # We have pages
-      else:
+      # Do we have pages?
+      if pages:
 
         # If we have no current page, pick the first one
-        if not current_page:
+        if current_page is None:
           current_page = pages[0]
           current_page_no = 0
 
         # If we have a new toolbar, switch to the first page containing keys
         # marked with the name of the new toolbar
-        elif new_toolbar:
+        if new_toolbar:
           r = re.compile("(^|;){}~".format(new_toolbar))
           for page_no, page in enumerate(pages):
             if r.search(page):
               current_page_no = page_no
               current_page = page
+              current_page_updated = True
               break
 
         # If any of the pages have changed, try to find a page in the new pages
         # that matches it with regard to action names and placements, regardless
         # of their enabled status, regardless of their icons and regardless of
         # page navigation keys
-        elif len(previous_pages) != len(pages) or \
-		any([previous_pages[i] != p for i, p in enumerate(pages)]):
+        if not current_page_updated and \
+		(len(previous_pages) != len(pages) or \
+		any([previous_pages[i] != p for i, p in enumerate(pages)])):
           r = re.compile("^" + ";".join([("{}~({})?(~[^;~]*){{6}}".
 						format(t, n) \
 						if n in ("PAGEPREV",
@@ -789,24 +800,54 @@ def streamdeck_update():
             if r.match(page):
               current_page_no = page_no
               current_page = page
+              current_page_updated = True
               break
 
-          else:
-            # We didn't find a matching page: try to switch to the first page
-            # containing keys marked with the name of the current toolbar
+        # Try to switch to the page containing the last action pressed -
+        # i.e. same toolbar name and same action name...
+        if not current_page_updated and last_action_pressed:
+          r = re.compile("(^|;){}~{}~".
+				format(last_action_pressed.toolbar,
+					last_action_pressed.name))
+          for page_no, page in enumerate(pages):
+            if r.search(page):
+              current_page_no = page_no
+              current_page = page
+              current_page_updated = True
+              break
+
+          # ...and if the name of the last action pressed wasn't found and
+          # it's a subaction of another action, try to switch to the page
+          # containing the key corresponding to the parent action
+          if not current_page_updated and \
+		last_action_pressed.issubactionof is not None:
+            r = re.compile("(^|;){}~{}~".
+				format(last_action_pressed.toolbar,
+					last_action_pressed.issubactionof))
             for page_no, page in enumerate(pages):
-              r = re.compile("(^|;){}~".
-				format(current_page.split("~", 1)[0].\
-					split("#", 1)[0]))
               if r.search(page):
                 current_page_no = page_no
                 current_page = page
+                current_page_updated = True
                 break
 
-            else:
-              # We didn't find a matching toolbar: default to the first page
-              current_page = pages[0]
-              current_page_no = 0
+        # Try to switch to the first page containing keys marked with the name
+        # of the current toolbar
+        if not current_page_updated:
+          r = re.compile("(^|;){}~".
+				format(current_page.split("~", 1)[0].\
+					split("#", 1)[0]))
+          for page_no, page in enumerate(pages):
+            if r.search(page):
+              current_page_no = page_no
+              current_page = page
+              current_page_updated = True
+              break
+
+        # Default to the first page as a last resort
+        if not current_page_updated:
+          current_page = pages[0]
+          current_page_no = 0
 
       update_streamdeck_keys = True
 
