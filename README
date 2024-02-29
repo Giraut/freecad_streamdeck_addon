@@ -28,8 +28,13 @@ Installation
 
 Copy this git repo directory in your FreeCAD addon directory. Typically:
 
-Linux:   ~/.local/share/FreeCAD/Mod/
-Windows: %APPDATA%\FreeCAD\Mod\
+User:
+  Linux:   ~/.local/share/FreeCAD/Mod/
+  Windows: %APPDATA%\FreeCAD\Mod\
+
+System-wide:
+  Linux:   /usr/share/freecad/Mod/
+  Windows: C:\Program Files\FreeCAD\Mod\
 
 You also need to install the following Python modules (for instance using
 python3 -m pip install or python -m pip install):
@@ -94,19 +99,18 @@ interested in are:
 
 
 
-Per-user parameters
+User parameters
 -------------------
 
-If the addon is installed system-wide, you may want to enable per-user
-parameters, so each user can set their own parameters.
+If the addon is installed system-wide, each user may want to define their own
+set of parameters. To do this, the user should copy the parameters.py file as
+freecad_streamdeck_addon.py in their local configuration directory, typically:
 
-To do this, uncomment user_parameters_file in parameters.py. Each
-user can define a file in their personal configuration directory, typically:
+Linux:   ~/.config/
+Windows: %LOCALAPPDATA%\
 
-Linux:   ~/.config/freecad_streamdeck_addons.py
-Windows: %LOCALAPPDATA%\freecad_streamdeck_addons.py
-
-The format of the user parameters file is identical to the default one.
+The format of the user parameters file is identical to that of parameters.py
+and the user parameters take precedence over those in parameters.py.
 
 
 
