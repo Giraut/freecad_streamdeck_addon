@@ -91,24 +91,24 @@ class Action():
 
 def open_streamdeck():
   """Try to open and reset the Stream Deck device
+  Return a list of information lines
   """
   global streamdeck
-  global show_streamdecks_info
 
   streamdeck = None
   dev_sns = None
+  info = []
 
   # Get a list of available Stream Deck devices and their serial numbers if
   # possible
   try:
     dev_sns = {d: None for d in DeviceManager().enumerate()}
-    if dev_sns and show_streamdecks_info:
-      print("Stream Deck devices found:")
+    if dev_sns:
+      info.append("Stream Deck devices found:")
 
   except Exception as e:
-    if show_streamdecks_info:
-      print("Error finding available Stream Deck devices: {}".format(e))
-      return
+    info.append("Error finding available Stream Deck devices: {}".format(e))
+    dev_sns = None
 
   if dev_sns is not None:
 
@@ -117,14 +117,12 @@ def open_streamdeck():
       try:
         streamdeck.device.open()
         dev_sns[streamdeck] = streamdeck.get_serial_number()
-        streamdeck.device.close()
-        if show_streamdecks_info:
-          print('  Type "{}": serial number "{}"'.
+        info.append('  Type "{}": serial number "{}"'.
 			format(streamdeck.deck_type(), dev_sns[streamdeck]))
       except Exception as e:
-        if show_streamdecks_info:
-          print('  Type "{}": could not get serial number: {}'.
+        info.append('  Type "{}": could not get serial number: {}'.
 			format(streamdeck.deck_type(), e))
+      if streamdeck is not None:
         try:
           streamdeck.close()
         except:
@@ -139,8 +137,7 @@ def open_streamdeck():
 		(dev_sns[streamdeck] and \
 			dev_sns[streamdeck].lower() == \
 				params.use_streamdeck_device_serial.lower()):
-          if show_streamdecks_info:
-            print('Using Stream Deck type "{}"{}'.
+          info.append('Using Stream Deck type "{}"{}'.
 			format(streamdeck.deck_type(),
 				'with serial number "{}"'.
 					format(dev_sns[streamdeck]) \
@@ -152,8 +149,7 @@ def open_streamdeck():
             streamdeck._reset_key_stream()
 
           except Exception as e:
-            if show_streamdecks_info:
-              print('Error opening the device: {}"'.format(e))
+            info.append('Error opening the device: {}"'.format(e))
             try:
               streamdeck.close()
             except:
@@ -165,8 +161,7 @@ def open_streamdeck():
           try:
             streamdeck.set_brightness(params.streamdeck_brightness)
           except Exception as e:
-            if show_streamdecks_info:
-              print('Error setting the brightness to {}: {}"'.
+            info.append('Error setting the brightness to {}: {}"'.
 			format(params.streamdeck_brightness, e))
             try:
               streamdeck.close()
@@ -177,13 +172,15 @@ def open_streamdeck():
           break
 
     else:
-      print("Stream Deck {}{}not found".
-		format("" if not params.use_streamdeck_device_type else \
-			'type "{}" '.
-				format(params.use_streamdeck_device_type),
+      info.append("Stream Deck {}{}not found".format(
+			"" if not params.use_streamdeck_device_type else \
+			'type "{}" '.format(params.use_streamdeck_device_type),
 			"" if not params.use_streamdeck_device_serial else \
 			'with serial number "{}" '.
 				format(params.use_streamdeck_device_serial)))
+      streamdeck = None
+
+  return info
 
 
 
@@ -213,13 +210,12 @@ def close_streamdeck():
       pass
 
     streamdeck = None
-    show_streamdecks_info = True
 
 
 
 def get_streamdeck_keypresses():
   """Detect short key presses - i.e. keys going back up after being down for a
-  short time - or long key presses - i.e. keys staying down for a long time.
+  short time - or long key presses - i.e. keys staying down for a long time
   Return list of (is_long_press, keyno) tuples
   """
 
@@ -495,6 +491,9 @@ def streamdeck_update():
   global expanded_actions
 
   global streamdeck
+  global streamdeck_was_open
+  global show_help
+
   global current_page
   global current_page_no
   global last_action_pressed
@@ -513,14 +512,24 @@ def streamdeck_update():
 
   # If the Stream Deck device is not open, try to open it
   if streamdeck is None:
-    open_streamdeck()
+
+    streamdecks_info = open_streamdeck()
 
     # If the Stream Deck device is not open, reschedule ourselves to run in a
     # while to let the FreeCAD UI breathe a bit, it takes long enough to try
     # opening a Stream Deck device that the FreeCAD UI freezes for a short time
     # which is not desirable
     if streamdeck is None:
-      print("Retrying in 30 seconds...")
+
+      # Show information about the Stream Decks if a Stream Deck was open before
+      if streamdeck_was_open is None or streamdeck_was_open:
+        print("-" * 79)
+        for l in streamdecks_info:
+          print(l)
+        print("Retrying every 30 seconds...")
+        print("-" * 79)
+
+      streamdeck_was_open = False
       timer.start(30 * 1000)
       return
 
@@ -538,15 +547,27 @@ def streamdeck_update():
 
     key_states_tstamps = None
 
-    show_streamdecks_info = False
+    # Show information about the Stream Decks if no Stream Deck was open before
+    if not streamdeck_was_open:
 
-    # Print out a bit of help
-    print()
-    print("Short-press on an enabled button to activate the function")
-    print("Long-press on buttons between {} brackets to expand / collapse them".
+      print("-" * 79)
+      for l in streamdecks_info:
+        print(l)
+
+      # Print out a bit of help once after the first open
+      if show_help:
+        print("-" * 79)
+        print("Short-press an enabled button to activate the function")
+        print("Long-press buttons between {} brackets to expand/collapse them".
 		format(params.brackets_color_for_expandable_tool_buttons))
-    print("Buttons between {} brackets are available in all pages".format(
+        print("Buttons between {} brackets are available in all pages".format(
 		params.brackets_color_for_toolbars_on_every_streamdeck_page))
+
+        show_help = False
+
+      print("-" * 79)
+
+      streamdeck_was_open = True
 
   # Get Stream Deck key press events
   try:
@@ -901,7 +922,8 @@ install_dir = os.path.dirname(__file__)
 in_install_dir = lambda f: os.path.abspath(os.path.join(install_dir, f))
 
 streamdeck = None
-show_streamdecks_info = True
+streamdeck_was_open = None
+show_help = True
 
 timer_reschedule_every_ms = round(params.check_streamdeck_keypress_every * 1000)
 next_actions_update_tstamp = 0
