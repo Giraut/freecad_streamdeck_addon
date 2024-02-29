@@ -137,7 +137,7 @@ def open_streamdeck():
 		(dev_sns[streamdeck] and \
 			dev_sns[streamdeck].lower() == \
 				params.use_streamdeck_device_serial.lower()):
-          info.append('Using Stream Deck type "{}"{}'.
+          info.append('Using Stream Deck type "{}" {}'.
 			format(streamdeck.deck_type(),
 				'with serial number "{}"'.
 					format(dev_sns[streamdeck]) \
@@ -149,27 +149,29 @@ def open_streamdeck():
             streamdeck._reset_key_stream()
 
           except Exception as e:
-            info.append('Error opening the device: {}"'.format(e))
+            info.append('  Error opening the device: {}"'.format(e))
             try:
               streamdeck.close()
             except:
               pass
             streamdeck = None
-            break
 
-          # Set the brightness of the Stream Deck's screen
-          try:
-            streamdeck.set_brightness(params.streamdeck_brightness)
-          except Exception as e:
-            info.append('Error setting the brightness to {}: {}"'.
+          # Set the brightness of the Stream Deck screen if the device was open
+          if streamdeck is not None:
+            try:
+              streamdeck.set_brightness(params.streamdeck_brightness)
+            except Exception as e:
+              info.append('  Error setting the brightness to {}: {}"'.
 			format(params.streamdeck_brightness, e))
-            try:
-              streamdeck.close()
-            except:
-              pass
-            streamdeck = None
+              try:
+                streamdeck.close()
+              except:
+                pass
+              streamdeck = None
 
-          break
+          # If the open was successful, stop trying
+          if streamdeck is not None:
+            break
 
     else:
       info.append("Stream Deck {}{}not found".format(
