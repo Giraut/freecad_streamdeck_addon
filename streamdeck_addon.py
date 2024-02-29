@@ -12,16 +12,13 @@ import os
 import sys
 import appdirs
 import importlib
-from copy import copy
 from time import time
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
-from StreamDeck.Devices.StreamDeck import ControlType
-from StreamDeck.DeviceManager import DeviceManager
-from StreamDeck.ImageHelpers import PILHelper
+from streamdeckclass import StreamDeck
 
 
 
@@ -91,213 +88,17 @@ class Action():
 ## Routines
 #
 
-def open_streamdeck():
-  """Try to open and reset the Stream Deck device
-  Return a list of information lines
-  """
-  global streamdeck
-
-  streamdeck = None
-  dev_sns = None
-  info = []
-
-  # Get a list of available Stream Deck devices and their serial numbers if
-  # possible
-  try:
-    dev_sns = {d: None for d in DeviceManager().enumerate()}
-    if dev_sns:
-      info.append("Stream Deck devices found:")
-
-  except Exception as e:
-    info.append("Error finding available Stream Deck devices: {}".format(e))
-    dev_sns = None
-
-  if dev_sns is not None:
-
-    # Get the serial numbers of the available Stream Deck devices if possible
-    for streamdeck in dev_sns:
-      try:
-        streamdeck.device.open()
-        dev_sns[streamdeck] = streamdeck.get_serial_number()
-        info.append('  Type "{}": serial number "{}"'.
-			format(streamdeck.deck_type(), dev_sns[streamdeck]))
-      except Exception as e:
-        info.append('  Type "{}": could not get serial number: {}'.
-			format(streamdeck.deck_type(), e))
-      if streamdeck is not None:
-        try:
-          streamdeck.close()
-        except:
-          pass
-
-    # Try to match a device to open
-    for streamdeck in dev_sns:
-      if not params.use_streamdeck_device_type or \
-		streamdeck.deck_type().lower() == \
-			params.use_streamdeck_device_type.lower():
-        if not params.use_streamdeck_device_serial or \
-		(dev_sns[streamdeck] and \
-			dev_sns[streamdeck].lower() == \
-				params.use_streamdeck_device_serial.lower()):
-          info.append('Using Stream Deck type "{}" {}'.
-			format(streamdeck.deck_type(),
-				'with serial number "{}"'.
-					format(dev_sns[streamdeck]) \
-				if dev_sns[streamdeck] else ""))
-
-          # Open the device
-          try:
-            streamdeck.device.open()
-            streamdeck._reset_key_stream()
-
-          except Exception as e:
-            info.append('  Error opening the device: {}"'.format(e))
-            try:
-              streamdeck.close()
-            except:
-              pass
-            streamdeck = None
-
-          # Set the brightness of the Stream Deck screen if the device was open
-          if streamdeck is not None:
-            try:
-              streamdeck.set_brightness(params.streamdeck_brightness)
-            except Exception as e:
-              info.append('  Error setting the brightness to {}: {}"'.
-			format(params.streamdeck_brightness, e))
-              try:
-                streamdeck.close()
-              except:
-                pass
-              streamdeck = None
-
-          # If the open was successful, stop trying
-          if streamdeck is not None:
-            break
-
-    else:
-      info.append("Stream Deck {}{}not found".format(
-			"" if not params.use_streamdeck_device_type else \
-			'type "{}" '.format(params.use_streamdeck_device_type),
-			"" if not params.use_streamdeck_device_serial else \
-			'with serial number "{}" '.
-				format(params.use_streamdeck_device_serial)))
-      streamdeck = None
-
-  return info
-
-
-
-def close_streamdeck():
-  """Try to reset and close the Stream Deck. Ignore errors.
-  """
-  global streamdeck
-
-  if streamdeck is not None:
-
-    # Try to reset the Stream Deck
-    try:
-      streamdeck.reset()
-    except:
-      pass
-
-    # Set the brightness of the Stream Deck's screen to zero to save the screen
-    try:
-      streamdeck.set_brightness(0)
-    except:
-      pass
-
-    # Try to close the Stream Deck
-    try:
-      streamdeck.close()
-    except:
-      pass
-
-    streamdeck = None
-
-
-
 def shutdown():
   """Callback to clean things up before stopping
   """
 
-  close_streamdeck()
+  global streamdeck
+
+  streamdeck.close()
 
   # If we have a shell command to execute when starting, execute it
   if params.execute_shell_command_when_stopping:
     os.system(params.execute_shell_command_when_stopping)
-
-
-
-def get_streamdeck_keypresses():
-  """Detect short key presses - i.e. keys going back up after being down for a
-  short time - or long key presses - i.e. keys staying down for a long time
-  Return list of (is_long_press, keyno) tuples
-  """
-
-  global streamdeck
-  global key_states_tstamps
-
-  now = time()
-
-  prev_key_states_tstamps = key_states_tstamps
-  key_presses = []
-
-  # Read key state events from the Stream Deck
-  st = streamdeck._read_control_states()
-  if st is None:
-    key_states = None
-  else:
-    key_states = st[ControlType.KEY]
-
-  # If there was no previous key press timestamps, initialize the current
-  # key press timestamps and return empty key presses
-  if not prev_key_states_tstamps:
-    key_states_tstamps = [None] * streamdeck.KEY_COUNT
-    return key_presses
-
-  key_states_tstamps = []
-
-  # Determine the current key states
-  if key_states is None:
-    key_states = [ts is not None for ts in prev_key_states_tstamps]
-
-  # Determine the current key presses
-  for i, ks in enumerate(key_states):
-
-    # The key is down
-    if ks:
-
-      # If it was up, record the time it went down
-      if prev_key_states_tstamps[i] is None:
-        key_states_tstamps.append(now)
-
-      # It was already down
-      else:
-
-        # If it was down for long enough, register a long key press event and
-        # mark the key as down but "spent"
-        if prev_key_states_tstamps[i] > 0 and \
-		now - prev_key_states_tstamps[i] > \
-			params.streamdeck_key_long_press_duration:
-          key_presses.append((True, i))
-          key_states_tstamps.append(0)
-
-        # The key was down but already "spent": carry on the previous state
-        else:
-          key_states_tstamps.append(prev_key_states_tstamps[i])
-
-    # The key is up
-    else:
-
-      # If it was down, register a short key press event
-      if prev_key_states_tstamps[i]:
-        key_presses.append((False, i))
-
-      # Clear the status of the key
-      key_states_tstamps.append(None)
-
-  return key_presses
 
 
 
@@ -425,76 +226,6 @@ def update_current_toolbar_actions():
 
 
 
-def set_streamdeck_key(keyno, image, top_text = None, bottom_text = None,
-			left_bracket_color = None, right_bracket_color = None):
-  """Upload an image to a Stream Deck key number with optional text at the top
-  and at the bottom, and optional colored brackets left and right of the image.
-  If image is None or "", load a blank icon
-  If image is "PAGEPREV", load the previous icon
-  If image is "PAGENEXT", load the next icon
-  If image is a string, load this image filen
-  In case of error loading the image file and/or scaling it, load and scale a
-  "broken image" icon instead
-  """
-
-  global font
-  global margins
-  global prev_image
-  global next_image
-  global blank_image
-  global broken_image
-
-  if not image:
-    image = blank_image
-
-  elif image == "PAGEPREV":
-    image = prev_image
-
-  elif image == "PAGENEXT":
-    image = next_image
-
-  try:
-    image = PILHelper.create_scaled_image(streamdeck, image, margins = margins)
-
-  except:
-    image = PILHelper.create_scaled_image(streamdeck, broken_image,
-						margins = margins)
-
-  # If we have text, write it on top of the image
-  if top_text or bottom_text or left_bracket_color or right_bracket_color:
-
-    draw = ImageDraw.Draw(image)
-
-    if top_text:
-      draw.text((image.width / 2, 0),
-			text = top_text,
-			font = font, anchor = "mt", fill = "white")
-
-    if bottom_text:
-      draw.text((image.width / 2, image.height - 1),
-			text = bottom_text,
-			font = font, anchor = "mb", fill = "white")
-
-    if left_bracket_color:
-      draw.line([(margins[3] - 2, margins[0] + 2),
-			(4, margins[0] + 2),
-			(4, image.height - margins[2] - 3),
-			(margins[3] - 2, image.height - margins[2] - 3)],
-			width = 5, fill = left_bracket_color)
-
-    if right_bracket_color:
-      draw.line([(image.width - margins[1], margins[0] + 2),
-			(image.width - 3, margins[0] + 2),
-			(image.width - 3, image.height - margins[2] - 5),
-			(image.width - margins[1],
-				image.height - margins[2] - 5)],
-			width = 5, fill = right_bracket_color)
-
-  # Set the image on the key
-  streamdeck.set_key_image(keyno, PILHelper.to_native_format(streamdeck, image))
-
-
-
 def streamdeck_update():
   """Mirror the current content of the Freecad toolbars onto the stream deck
   """
@@ -514,8 +245,6 @@ def streamdeck_update():
   global current_page_no
   global last_action_pressed
 
-  global key_states_tstamps
-
   global pages
 
   global timer
@@ -527,15 +256,17 @@ def streamdeck_update():
   update_streamdeck_keys = False
 
   # If the Stream Deck device is not open, try to open it
-  if streamdeck is None:
+  if not streamdeck.is_open():
 
-    streamdecks_info = open_streamdeck()
+    streamdecks_info = streamdeck.open(params.use_streamdeck_device_type,
+					params.use_streamdeck_device_serial,
+					params.streamdeck_brightness)
 
-    # If the Stream Deck device is not open, reschedule ourselves to run in a
-    # while to let the FreeCAD UI breathe a bit, it takes long enough to try
-    # opening a Stream Deck device that the FreeCAD UI freezes for a short time
-    # which is not desirable
-    if streamdeck is None:
+    # If the open failed, reschedule ourselves to run in a while to let the
+    # FreeCAD UI breathe a bit, as it takes long enough to try opening a Stream
+    # Deck device that the FreeCAD UI freezes for a short time, which is not
+    # desirable
+    if not streamdeck.is_open():
 
       # Show information about the Stream Decks if a Stream Deck was open before
       if streamdeck_was_open is None or streamdeck_was_open:
@@ -561,8 +292,6 @@ def streamdeck_update():
     current_page = None
     last_action_pressed = None
 
-    key_states_tstamps = None
-
     # Show information about the Stream Decks if no Stream Deck was open before
     if not streamdeck_was_open:
 
@@ -587,12 +316,13 @@ def streamdeck_update():
 
   # Get Stream Deck key press events
   try:
-    pressed_keys = get_streamdeck_keypresses()
-  except:
-    close_streamdeck()
+    pressed_keys = streamdeck.get_keypresses()
+  except Exception as e:
+    print(e)
+    streamdeck.close()
 
   # Process Stream Deck key press events if a current page is displayed
-  if streamdeck is not None and current_page is not None:
+  if streamdeck.is_open() and current_page is not None:
     keystrings = current_page.split(";")
 
     for is_long_press, key in pressed_keys:
@@ -643,7 +373,7 @@ def streamdeck_update():
 
   # Should we get the current state of the FreeCAD toolbars and update the
   # Stream Deck pages?
-  if streamdeck is not None and not update_streamdeck_keys and \
+  if streamdeck.is_open() and not update_streamdeck_keys and \
 	now > next_actions_update_tstamp:
 
     # Update the currently displayed toolbar actions
@@ -661,7 +391,7 @@ def streamdeck_update():
       # Compose the new pages to display on the Stream Deck: the pages are
       # described in a multiline string with each line in the following format:
       #
-      # <key0>;<key1>;...;<keyKEY_COUNT-1>
+      # <key0>;<key1>;...;<keyN>
       #
       # and each key is composed of:
       # <toolbarmarker>~[action]~[0|1]~[iconid]~[toptext]~[bottomtext]~
@@ -692,20 +422,20 @@ def streamdeck_update():
       nbkeys = len(keys)
 
       empty_new_pages = []
-      while nbkeys > streamdeck.KEY_COUNT - 3:	# The last page of the new empty
+      while nbkeys > streamdeck.nbkeys - 3:	# The last page of the new empty
 						# pages should have 2 slots left
 						# for the page navigation keys
 						# and 1 empty slot
-        empty_new_pages.append(";".join(keys[:streamdeck.KEY_COUNT - 2]) + \
+        empty_new_pages.append(";".join(keys[:streamdeck.nbkeys - 2]) + \
 				";[pageprev];[pagenext]")
-        keys = keys[streamdeck.KEY_COUNT - 2:]
-        nbkeys -= streamdeck.KEY_COUNT - 2
+        keys = keys[streamdeck.nbkeys - 2:]
+        nbkeys -= streamdeck.nbkeys - 2
 
       empty_new_pages.append(";".join(keys) + \
 				(";" if keys and \
-				(streamdeck.KEY_COUNT - nbkeys - 2) else "") + \
+				(streamdeck.nbkeys - nbkeys - 2) else "") + \
 				";".join(["[key]" for _ in \
-				range(streamdeck.KEY_COUNT - nbkeys - 2)]) + \
+				range(streamdeck.nbkeys - nbkeys - 2)]) + \
 				";[pageprev];[pagenext]")
 
       last_empty_new_page_i = len(empty_new_pages) - 1
@@ -892,18 +622,18 @@ def streamdeck_update():
     next_actions_update_tstamp = now + params.check_toolbar_updates_every
 
   # Should we update the Stream Deck keys?
-  if streamdeck is not None and update_streamdeck_keys:
+  if streamdeck.is_open() and update_streamdeck_keys:
 
     # Update the keys that need updating
     if not current_page:
 
       # Clear all the Stream Deck keys if we don't have a current page anymore
       if prev_current_page:
-        for keyno in range(streamdeck.KEY_COUNT):
+        for keyno in range(streamdeck.nbkeys):
           try:
-            set_streamdeck_key(keyno, None)
+            streamdeck.set_key(keyno, None)
           except:
-            close_streamdeck()
+            streamdeck.close()
             break
 
     # Update the keys to display the current page as needed
@@ -920,9 +650,9 @@ def streamdeck_update():
 		actions[n].icon_as_pil_image()
 
           try:
-            set_streamdeck_key(keyno, img, tt, bt, lbc, rbc)
+            streamdeck.set_key(keyno, img, tt, bt, lbc, rbc)
           except:
-            close_streamdeck()
+            streamdeck.close()
             break
 
   # Reschedule ourselves
@@ -984,29 +714,28 @@ for p in default_parameters:
   if p not in params.__dict__:
     setattr(params, p, default_parameters[p])
 
-streamdeck = None
-streamdeck_was_open = None
-show_help = True
-
-timer_reschedule_every_ms = round(params.check_streamdeck_keypress_every * 1000)
-next_actions_update_tstamp = 0
-
-# Get the appropriate font for the platform to write in the Stream Deck keys
+# Get the name of the appropriate font to write in the Stream Deck keys
+# depending on the platform
 font_filename = params.streamdeck_key_text_font_filename_windows \
 			if is_win else \
 		params.streamdeck_key_text_font_filename_linux
-font = ImageFont.truetype(font_filename, params.streamdeck_key_text_font_size)
 
-# Determine the margins between the icon and the edges of the Stream Deck keys
-# to leave just enough space for the top and bottom text
-_, font_text_min_y, _, font_text_max_y = font.getbbox("A!_j")
-margins = [font_text_max_y - font_text_min_y + 1] * 4
+# Initialize the streamdeck object
+streamdeck = StreamDeck(font_filename, params.streamdeck_key_text_font_size,
+			in_install_dir(params.prev_streamdeck_key_icon),
+			in_install_dir(params.next_streamdeck_key_icon),
+			in_install_dir(params.blank_streamdeck_key_icon),
+			in_install_dir(params.broken_streamdeck_key_icon),
+			params.streamdeck_key_long_press_duration)
 
-# Preload icons for the Stream Deck keys
-prev_image = Image.open(in_install_dir(params.prev_streamdeck_key_icon))
-next_image = Image.open(in_install_dir(params.next_streamdeck_key_icon))
-blank_image = Image.open(in_install_dir(params.blank_streamdeck_key_icon))
-broken_image = Image.open(in_install_dir(params.broken_streamdeck_key_icon))
+streamdeck_was_open = None
+show_help = True
+
+# Timer interval in milliseconds
+timer_reschedule_every_ms = round(params.check_streamdeck_keypress_every * 1000)
+
+# What time we should update the toolbars and actions
+next_actions_update_tstamp = 0
 
 # Get the main window
 main_window = Gui.getMainWindow()
