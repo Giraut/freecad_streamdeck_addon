@@ -31,6 +31,8 @@ class StreamDeck():
     self.dev = None
     self.nbkeys = None
     self.__key_states_tstamps = None
+    self.__brightness = None
+    self.__fade_start_tstamp = None
 
     # Load the TrueType font
     self.font = ImageFont.truetype(ttf_file, ttf_size)
@@ -46,14 +48,23 @@ class StreamDeck():
     _, font_text_min_y, _, font_text_max_y = self.font.getbbox("A!_j")
     self.margins = [font_text_max_y - font_text_min_y + 1] * 4
 
+    # How long is a long key press
     self.long_keypress_duration = long_keypress_duration
 
+    # Minimum and maximum brightness
+    self.min_brightness = None
+    self.max_brightness = None
+
+    # Fade time
+    self.fade_time = None
 
 
-  def open(self, device_type, serial_number, brightness):
+
+
+  def open(self, device_type, serial_number,
+		min_brightness, max_brightness, fade_time):
     """Try to open and reset the Stream Deck device with the specified device
-    type and serial number (case-independent), then try to set the screen's
-    brightness if specified
+    type and serial number (case-independent)
     If device_type is None, any device type is valid
     If serial_number is None, any serial number is valid
     Return information lines summarizing what devices were found and which was
@@ -123,22 +134,13 @@ class StreamDeck():
                 pass
               self.dev = None
 
-            # Set Stream Deck screen's brightness if the device was open
-            if self.dev is not None:
-              try:
-                self.dev.set_brightness(brightness)
-              except Exception as e:
-                info.append('  Error setting the brightness to {}: {}"'.
-				format(brightness, e))
-                try:
-                  self.dev.close()
-                except:
-                  pass
-                self.dev = None
-
-            # If the open was successful, stop trying
+            # If the open was successful, save the remaining device-related
+            # variables and stop trying
             if self.dev is not None:
               self.nbkeys = self.dev.KEY_COUNT
+              self.min_brightness = min_brightness
+              self.max_brightness = max_brightness
+              self.fade_time = fade_time
               break
 
       else:
@@ -324,3 +326,41 @@ class StreamDeck():
 
     # Upload the image to the key
     self.dev.set_key_image(keyno, PILHelper.to_native_format(self.dev, image))
+
+
+
+  def set_brightness(self, user_active = True):
+    """Set the brightness of the Stream Deck's screen
+    If the user is active, set the maximum brightness
+    If the user is inactive, set the brightness according to how long they have
+    been inactive, down the the minimum brightness
+    """
+
+    # Is the user active?
+    if user_active:
+      self.__fade_start_tstamp = None
+
+      # Set the maximum brightness if it's not already set
+      if self.__brightness is None or self.__brightness != self.max_brightness:
+        self.__brightness = self.max_brightness
+        self.dev.set_brightness(self.__brightness)
+
+    # The user is inactive
+    else:
+      now = time()
+
+      # If the user was previously active, mark the start of the inactivity
+      if self.__fade_start_tstamp is None:
+        self.__fade_start_tstamp = now
+
+      # Calculate the brightness based on how long the user has been inactive
+      b = round(max(self.min_brightness,
+			self.max_brightness - \
+			(now - self.__fade_start_tstamp) * \
+			(self.max_brightness - self.min_brightness) / \
+			self.fade_time))
+
+      # Set the brightness value if it's different from the one already set
+      if b != self.__brightness:
+        self.__brightness = b
+        self.dev.set_brightness(self.__brightness)

@@ -1,6 +1,6 @@
                            FreeCAD Stream Deck Addon
                           ---------------------------
-                                    v0.0.6
+                                    v0.0.7
 
 
 This is an addon for FreeCAD to use an Elgato Stream Deck macropad as an input
@@ -96,6 +96,14 @@ interested in are:
 
   How bright the Stream Deck's display should be. Percentage from 0% to 100%.
   The brighter, the more wear and burn in on the display of course.
+
+- streamdeck_brightness_fade_to
+- streamdeck_brightness_fade_time
+- streamdeck_brightness_fade_when_user_inactive_for
+
+  Stream Deck screen saving parameters.
+  Comment out streamdeck_brightness_fade_when_user_inactive_for or set it to 0
+  to disable screen saving.
 
 
 

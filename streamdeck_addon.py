@@ -116,6 +116,8 @@ def update_current_toolbar_actions():
   Return True if the toolbars have changed in any way, False if they haven't
   """
 
+  global main_window
+
   global previous_toolbars
   global toolbars
   global toolbar_actions
@@ -230,6 +232,11 @@ def streamdeck_update():
   """Mirror the current content of the Freecad toolbars onto the stream deck
   """
 
+  global main_window
+
+  global cursor_pos
+  global last_cursor_movement_tstamp
+
   global previous_toolbars
   global toolbars
   global toolbar_actions
@@ -260,7 +267,9 @@ def streamdeck_update():
 
     streamdecks_info = streamdeck.open(params.use_streamdeck_device_type,
 					params.use_streamdeck_device_serial,
-					params.streamdeck_brightness)
+					params.streamdeck_brightness_fade_to,
+					params.streamdeck_brightness,
+					params.streamdeck_brightness_fade_time)
 
     # If the open failed, reschedule ourselves to run in a while to let the
     # FreeCAD UI breathe a bit, as it takes long enough to try opening a Stream
@@ -279,6 +288,8 @@ def streamdeck_update():
       streamdeck_was_open = False
       timer.start(30 * 1000)
       return
+
+    cursor_pos = None
 
     previous_toolbars = []
     toolbars = []
@@ -317,8 +328,7 @@ def streamdeck_update():
   # Get Stream Deck key press events
   try:
     pressed_keys = streamdeck.get_keypresses()
-  except Exception as e:
-    print(e)
+  except:
     streamdeck.close()
 
   # Process Stream Deck key press events if a current page is displayed
@@ -655,6 +665,27 @@ def streamdeck_update():
             streamdeck.close()
             break
 
+  # Determine if the user is active, if the Stream Deck is still open
+  if streamdeck.is_open():
+
+    prev_cursor_pos = cursor_pos
+    cursor_pos = main_window.cursor().pos()
+
+    if prev_cursor_pos is None or cursor_pos != prev_cursor_pos:
+      last_cursor_movement_tstamp = now
+
+    active = not params.streamdeck_brightness_fade_when_user_inactive_for or \
+		params.streamdeck_brightness_fade_when_user_inactive_for > \
+			(now - last_cursor_movement_tstamp) or \
+		pressed_keys or \
+		update_streamdeck_keys
+
+    # Set the brightness of the Stream Deck's screen
+    try:
+      streamdeck.set_brightness(active)
+    except:
+      streamdeck.close()
+
   # Reschedule ourselves
   timer.start(timer_reschedule_every_ms)
 
@@ -708,7 +739,10 @@ default_parameters = {
 	"next_streamdeck_key_icon": "next.png",
 	"blank_streamdeck_key_icon": "blank.png",
 	"broken_streamdeck_key_icon": "broken.png",
-	"streamdeck_brightness": 80}
+	"streamdeck_brightness": 80,
+	"streamdeck_brightness_fade_to": 0,
+	"streamdeck_brightness_fade_time": 10,
+	"streamdeck_brightness_fade_when_user_inactive_for": None}
 
 for p in default_parameters:
   if p not in params.__dict__:

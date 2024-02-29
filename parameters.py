@@ -55,3 +55,13 @@ toolbars_on_every_streamdeck_page = ["Edit"]		# Ok for smaller Deck
 
 # Brightness of the Stream Deck keys
 streamdeck_brightness = 80 #%
+
+# How dim the Stream Deck should become when the user is inactive
+streamdeck_brightness_fade_to = 5 #%
+
+# How much time the Stream Deck should take to fully dim
+streamdeck_brightness_fade_time = 10 #s
+
+# How long the user should be inactive for for the Stream Deck to start dimming
+# Comment out or set to 0 to disable fading
+streamdeck_brightness_fade_when_user_inactive_for = 300 #s
