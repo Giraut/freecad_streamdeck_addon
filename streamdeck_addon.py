@@ -215,6 +215,18 @@ def close_streamdeck():
 
 
 
+def shutdown():
+  """Callback to clean things up before stopping
+  """
+
+  close_streamdeck()
+
+  # If we have a shell command to execute when starting, execute it
+  if params.execute_shell_command_when_stopping:
+    os.system(params.execute_shell_command_when_stopping)
+
+
+
 def get_streamdeck_keypresses():
   """Detect short key presses - i.e. keys going back up after being down for a
   short time - or long key presses - i.e. keys staying down for a long time
@@ -919,9 +931,39 @@ def streamdeck_update():
 ## Entry point
 #
 
+# Determine the platform
 is_win = sys.platform[0:3] == "win"
+
+# Determine the installation directory
 install_dir = os.path.dirname(__file__)
 in_install_dir = lambda f: os.path.abspath(os.path.join(install_dir, f))
+
+# Make sure we have all the parameters we need
+default_parameters = {
+	"use_streamdeck_device_type": None,
+	"use_streamdeck_device_serial": None,
+	"execute_shell_command_when_starting": None,
+	"execute_shell_command_when_stopping": None,
+	"check_streamdeck_keypress_every": 0.1,
+	"streamdeck_key_long_press_duration": 0.5,
+	"check_toolbar_updates_every": 0.5,
+	"exclude_toolbars_from_streamdeck": [],
+	"toolbars_on_every_streamdeck_page": [],
+	"brackets_color_for_toolbars_on_every_streamdeck_page": "blue",
+	"brackets_color_for_streamdeck_page_navigation_keys": "blue",
+	"brackets_color_for_expandable_tool_buttons": "red",
+	"streamdeck_key_text_font_filename_linux": "OpenSans-Regular.ttf",
+	"streamdeck_key_text_font_filename_windows": "arial.ttf",
+	"streamdeck_key_text_font_size": 14,
+	"prev_streamdeck_key_icon": "prev.png",
+	"next_streamdeck_key_icon": "next.png",
+	"blank_streamdeck_key_icon": "blank.png",
+	"broken_streamdeck_key_icon": "broken.png",
+	"streamdeck_brightness": 80}
+
+for p in default_parameters:
+  if p not in params.__dict__:
+    setattr(params, p, default_parameters[p])
 
 streamdeck = None
 streamdeck_was_open = None
@@ -955,8 +997,12 @@ timer = QtCore.QTimer()
 timer.setSingleShot(True)
 timer.timeout.connect(streamdeck_update)
 
+# If we have a shell command to execute when starting, execute it
+if params.execute_shell_command_when_starting:
+  os.system(params.execute_shell_command_when_starting)
+
 # Connect the main window's destroyed() signal to the Strem Deck close function
-main_window.destroyed.connect(close_streamdeck)
+main_window.destroyed.connect(shutdown)
 
 # Schedule the timer for the first itme
 timer.start()
