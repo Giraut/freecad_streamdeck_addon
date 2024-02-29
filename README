@@ -36,6 +36,7 @@ python3 -m pip install or python -m pip install):
 
 - streamdeck
 - Pillow
+- appdirs
 
 
 
@@ -90,6 +91,22 @@ interested in are:
 
   How bright the Stream Deck's display should be. Percentage from 0% to 100%.
   The brighter, the more wear and burn in on the display of course.
+
+
+
+Per-user parameters
+-------------------
+
+If the addon is installed system-wide, you may want to enable per-user
+parameters, so each user can set their own parameters.
+
+To do this, uncomment user_parameters_file in parameters.py. Each
+user can define a file in their personal configuration directory, typically:
+
+Linux:   ~/.config/freecad_streamdeck_addons.py
+Windows: %LOCALAPPDATA%\freecad_streamdeck_addons.py
+
+The format of the user parameters file is identical to the default one.
 
 
 

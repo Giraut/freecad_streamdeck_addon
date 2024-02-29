@@ -10,6 +10,8 @@ import re
 import io
 import os
 import sys
+import appdirs
+import importlib
 from copy import copy
 from time import time
 from PIL import Image, ImageDraw, ImageFont
@@ -937,6 +939,23 @@ is_win = sys.platform[0:3] == "win"
 # Determine the installation directory
 install_dir = os.path.dirname(__file__)
 in_install_dir = lambda f: os.path.abspath(os.path.join(install_dir, f))
+
+# Try to read the user's parameters file if it exists
+user_params_file = getattr(params, "user_parameters_file", None)
+
+if user_params_file:
+  user_cfg_dir = os.path.abspath(appdirs.user_config_dir())
+  user_params_file = os.path.join(user_cfg_dir, user_params_file)
+
+  if os.path.exists(user_params_file):
+    n = params.__name__
+    try:
+      spec = importlib.util.spec_from_file_location(n, user_params_file)
+      params = importlib.util.module_from_spec(spec)
+      spec.loader.exec_module(params)
+    except Exception as e:
+      print("WARNING: cannot read user parameters file {}: {}".
+		format(user_params_file, e))
 
 # Make sure we have all the parameters we need
 default_parameters = {
