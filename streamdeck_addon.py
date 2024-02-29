@@ -553,10 +553,9 @@ def streamdeck_update():
     pressed_keys = get_streamdeck_keypresses()
   except:
     close_streamdeck()
-    return
 
   # Process Stream Deck key press events if a current page is displayed
-  if current_page is not None:
+  if streamdeck is not None and current_page is not None:
     keystrings = current_page.split(";")
 
     for is_long_press, key in pressed_keys:
@@ -607,7 +606,8 @@ def streamdeck_update():
 
   # Should we get the current state of the FreeCAD toolbars and update the
   # Stream Deck pages?
-  if not update_streamdeck_keys and now > next_actions_update_tstamp:
+  if streamdeck is not None and not update_streamdeck_keys and \
+	now > next_actions_update_tstamp:
 
     # Update the currently displayed toolbar actions
     if update_current_toolbar_actions():
@@ -855,7 +855,7 @@ def streamdeck_update():
     next_actions_update_tstamp = now + params.check_toolbar_updates_every
 
   # Should we update the Stream Deck keys?
-  if update_streamdeck_keys:
+  if streamdeck is not None and update_streamdeck_keys:
 
     # Update the keys that need updating
     if not current_page:
