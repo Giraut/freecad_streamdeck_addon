@@ -6,20 +6,29 @@
 This is an addon for FreeCAD to use an Elgato Stream Deck macropad as an input
 device (https://www.elgato.com).
 
-The toolbar icons currently displayed in the FreeCAD window are mirrored onto
-the Stream Deck's keys and constantly updated as their availability and icons
-change.
+The toolbar tools currently displayed in the FreeCAD window are mirrored onto
+the Stream Deck's keys and constantly updated to match the tools in the main
+window.
 
-When a Stream Deck button is pressed, the corresponding toolbar tool is run
+When a Stream Deck key is pressed, the corresponding toolbar tool is run
 as if clicked on directly in the main window.
 
-The toolbar icons are organized in pages. A toolbar occupies its own set of
-pages (only one page if the Stream Deck has enough buttons). Some toolbars are
-displayed constantly in all the pages, while some are always excluded.
-See configuration below.
+When a Stream Deck key representing a toolbar tool with a sub-menu is
+long-pressed, the tool is expanded to show the additional tools in the
+sub-menu. When any of the expanded sub-menu tools is long-pressed again,
+the sub-menu is collapsed back to a single tool. The tools with sub-menus
+are shown between red brackets.
 
-Two keys at the bottom right of the Stream Deck are dedicated to change from
-page to page.
+The toolbar tools are organized in pages. A toolbar occupies its own set of
+pages (only one page if the Stream Deck has enough buttons).
+
+Some toolbars are displayed constantly in all the pages. Those toolbar tools
+are shown between blue brackets.
+
+Other toolbars are always excluded from the Stream Deck and never shown.
+
+Two keys at the bottom right of the Stream Deck are dedicated to navigating
+from page to page.
 
 
 
@@ -53,44 +62,44 @@ interested in are:
 
 - use_streamdeck_device_type
 
-  The type of the Stream Deck device you want to use, if more than one device
+  The type of the Stream Deck device you want to use if more than one device
   is connected. Comment out to use any type of device.
 
 - use_streamdeck_device_serial
 
-  The serial number of the Stream Deck device you want to use, if more than one
+  The serial number of the Stream Deck device you want to use if more than one
   device is connected. Comment out to use a device with any serial number.
 
 - execute_shell_command_when_starting
 
   Shell script to run when starting. Useful to kill another Stream Deck
-  application such as streamdeck-ui and free up access to the Stream Deck
-  device for example. Comment out to disable.
+  application such as streamdeck-ui and release the Stream Deck device
+  for use by this addon. Comment out to disable.
 
 - execute_shell_command_when_stopping
 
   Shell script to run when stopping. Useful to restart another Stream Deck
   application such as streamdeck-ui after the Stream Deck device has been
-  freed up for example. Comment out to disable.
+  releases by this addon. Comment out to disable.
 
 - exclude_toolbars_from_streamdeck
 
-  List of toolbar names you never want displayed on your StreamDeck regardless
+  List of toolbar names you never want displayed on the Stream Deck regardless
   of whether they're enabled in the main window, to reduce clutter. Comment
   out or set to [] to display all the toolbars.
 
 - toolbars_on_every_streamdeck_pages
 
-  List of toolbar names you want repeated in all the pages, so they're always
+  List of toolbar names you want repeated on all the pages, so they're always
   available regardless of the particular toolbar page you're in. Comment out
   or set to [] if you don't want any toolbars repeated on all the pages.
 
   If your Stream Deck has enough keys - Stream Deck XL for example - you can
-  have more such permanently-displayed toolbar icons without multiplying the
+  have more such permanently-displayed toolbar tools without multiplying the
   number of pages.
 
   If your Stream Deck has fewer keys, you may want to have fewer
-  permanently-displayed toolbar icons to free up more keys per page.
+  permanently-displayed toolbar tools to free up more keys per page.
 
 - streamdeck_brightness
 
@@ -101,9 +110,9 @@ interested in are:
 - streamdeck_brightness_fade_time
 - streamdeck_brightness_fade_when_user_inactive_for
 
-  Stream Deck screen saving parameters.
+  Stream Deck screen saver parameters.
   Comment out streamdeck_brightness_fade_when_user_inactive_for or set it to 0
-  to disable screen saving.
+  to disable the screen saver.
 
 
 
@@ -111,31 +120,18 @@ User parameters
 -------------------
 
 If the addon is installed system-wide, each user may want to define their own
-set of parameters. To do this, the user should copy the parameters.py file as
-freecad_streamdeck_addon.py in their local configuration directory, typically:
+set of parameters.
+
+To do this, copy the parameters.py file as freecad_streamdeck_addon.py in the
+the local users configuration directory, typically:
 
 Linux:   ~/.config/
 Windows: %LOCALAPPDATA%\
 
-The format of the user parameters file is identical to that of parameters.py
-and the user parameters take precedence over those in parameters.py.
+The format of the freecad_streamdeck_addon.py file is identical to that of
+parameters.py.
 
-
-
-Usage
------
-
-The toolbar icons are mirrored onto the Stream Deck keys. There are usually
-more toolbar buttons than Stream Deck keys available, so the icons are
-organized in pages on the Stream Deck. Use the left and right arrow keys to
-change pages.
-
-The permanently-displayed toolbar icons are displayed between blue brackets.
-They are available in all the pages.
-
-Toolbar icons that have a submenu attached to them are displayed between red
-brackets. Long-pressing such an icon will expand it. Long-pressing it again
-or any of the submenu icons will collapse it back.
+The user parameters take precedence over those in parameters.py.
 
 
 
