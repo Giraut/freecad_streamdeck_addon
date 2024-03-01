@@ -6,82 +6,59 @@
 
 import parameters as params
 
-import re
-import io
 import os
 import sys
 import appdirs
 import importlib
 from time import time
-from PIL import Image
 
 import FreeCADGui as Gui
-from PySide import QtCore, QtGui
+from PySide import QtCore
 
-from streamdeckclass import StreamDeck
+from streamdeck_comm import StreamDeck
+from gui_actions import ToolbarActions
+from streamdeck_pages import StreamDeckPages
 
 
 
 ## Classes
 #
 
-class Action():
-  """Single known displayed action descriptor
+class UserActivity():
+  """Class to check if the user is active or idle based on cursor movements
+  If the cursor hasn't moved within inactivity_time, the user is deemed inactive
+  If inactivity_time is None, the check is disabled and the user is deemed
+  active all the time
   """
 
-  def __init__(self, name, toolbar, action, issubactionof = None):
+  def __init__(self, main_window, inactivity_time):
     """__init__ method
     """
 
-    self.name = name
+    self.main_window = main_window
 
-    self.toolbar = toolbar
-    self.action = action
+    self.inactivity_time = inactivity_time
 
-    self.enabled = action.isEnabled()
-    self.title = action.iconText()
-    self.iconid = action.icon().cacheKey()
-
-    self.issubactionof = issubactionof	# If the action is a menu item,
-					# of which action
-    self.islastsubaction = False	# If the action is a menu item, whether
-					# it's the last item in the menu
+    self.cursor_pos = None
+    self.last_cursor_movement_tstamp = None
 
 
 
-  def update(self, toolbar, action):
-    """Update this Action object with new toolbar and action data as needed
+  def is_active(self, now):
+    """Determine if the user is active based on the cursor movements
+    If the cursor hasn't moved within inactivity_time, return False
     """
 
-    if self.toolbar != toolbar:
-      self.toolbar = toolbar
-      self.action = action
-      self.title = action.iconText()
+    if not self.inactivity_time:
+      return True
 
-    self.iconid = action.icon().cacheKey()
-    self.enabled = action.isEnabled()
+    prev_cursor_pos = self.cursor_pos
+    self.cursor_pos = main_window.cursor().pos()
 
+    if prev_cursor_pos is None or self.cursor_pos != prev_cursor_pos:
+      self.last_cursor_movement_tstamp = now
 
-
-  def icon_as_pil_image(self):
-    """Convert the enabled or disabled versions of the QIcon into a PIL image
-    """
-
-    try:
-      pixmap = self.action.icon().pixmap(128, 128,
-					mode = QtGui.QIcon.Mode.Normal \
-							if self.enabled else \
-						QtGui.QIcon.Mode.Disabled)
-      qba = QtCore.QByteArray()
-      qbf = QtCore.QBuffer(qba)
-      pixmap.save(qbf, "PPM")
-      img = Image.open(io.BytesIO(qba))
-      qbf.close
-
-    except:
-      img = None
-
-    return img
+    return now - self.last_cursor_movement_tstamp < self.inactivity_time
 
 
 
@@ -111,148 +88,23 @@ def action_changed():
 
 
 
-def update_current_toolbar_actions():
-  """update the ordered list of toolbar names, toolbar actions and subactions
-  Return True if the toolbars have changed in any way, False if they haven't
-  """
-
-  global main_window
-
-  global previous_toolbars
-  global toolbars
-  global toolbar_actions
-  global actions
-  global update_actions
-  global expanded_actions
-
-  previous_toolbars = toolbars
-  toolbars = []
-
-  # Get the list of toolbars
-  tbs = []
-  for toolbar in main_window.findChildren(QtGui.QToolBar):
-
-    # Should we keep or ignore this toolbar?
-    t = toolbar.objectName()
-    if not toolbar.isHidden() and \
-		t not in params.exclude_toolbars_from_streamdeck:
-
-      # Keep the toolbar
-      tbs.append(toolbar)
-      toolbars.append(t)
-
-  # If the new list of toolbars is different from the previous one in any way,
-  # update all the associated actions
-  if len(toolbars) != len(previous_toolbars) or \
-	any([previous_toolbars[i] != t for i, t in enumerate(toolbars)]):
-    update_actions = True
-
-  # Should we update all the toolbar actions?
-  if update_actions:
-    update_actions = False
-
-    toolbar_actions.clear()
-    for i, toolbar in enumerate(tbs):
-
-      t = toolbars[i]
-      toolbar_actions[t] = []
-
-      # Get the list of buttons in this toolbar
-      for button in toolbar.findChildren(QtGui.QToolButton):
-
-        # Get the list of actions associated with this button
-        for action in button.actions():
-
-          # Should we keep or ignore this action?
-          n = action.data()
-          if n and not action.isSeparator() and action.isIconVisibleInMenu():
-
-            # Add the action to the list of known actions if it isn't
-            # already known and connect its changed signal to our callback,
-            # otherwise update the known action
-            if n not in actions:
-              actions[n] = Action(n, t, action)
-              action.changed.connect(action_changed)
-            else:
-              actions[n].update(t, action)
-            toolbar_actions[t].append(n)
-
-            # Does the button have a menu associated with it?
-            m = button.findChildren(QtGui.QMenu)
-            if m:
-
-              # Add this action to the list of expand(able) actions if it isn't
-              # in it already
-              if n not in expanded_actions:
-                expanded_actions[n] = False
-
-              # Should we expand the subactions?
-              if expanded_actions[n]:
-
-                # Get all the menu subactions
-                last_subactions = None
-                for subaction in m[0].actions():
-
-                  # Should we keep or ignore this action?
-                  if not subaction.isSeparator() and \
-				subaction.isIconVisibleInMenu():
-
-                    # Create a name for this subaction: either the straight name
-                    # from .objectName(), or the name of the parent action with
-                    # the menu number from .data() appended to it
-                    sn = subaction.objectName()
-                    if not sn:
-                      sn = n + "#" + str(subaction.data())
-
-                    # Add the subaction to the list of known actions if it isn't
-                    # already known and connect its changed signal to our
-                    # callback, otherwise update the known action
-                    if sn not in actions:
-                      actions[sn] = Action(sn, t, subaction, issubactionof = n)
-                      subaction.changed.connect(action_changed)
-                    else:
-                      actions[sn].update(t, subaction)
-                    toolbar_actions[t].append(sn)
-
-                    last_subaction = sn
-
-                # Mark the last subaction in this menu
-                if last_subaction is not None:
-                  actions[last_subaction].islastsubaction = True
-
-    # Signal that the actions have been updated
-    return True
-
-  # Signal that the actions have not been updated
-  return False
-
-
-
 def streamdeck_update():
   """Mirror the current content of the Freecad toolbars onto the stream deck
   """
 
   global main_window
 
-  global cursor_pos
-  global last_cursor_movement_tstamp
-
-  global previous_toolbars
-  global toolbars
-  global toolbar_actions
-  global actions
-  global update_actions
-  global expanded_actions
-
   global streamdeck
   global streamdeck_was_open
   global show_help
 
-  global current_page
-  global current_page_no
-  global last_action_pressed
+  global update_actions
 
+  global tbactions
   global pages
+  global useractivity
+
+  global last_action_pressed
 
   global timer
   global timer_reschedule_every_ms
@@ -289,18 +141,21 @@ def streamdeck_update():
       timer.start(30 * 1000)
       return
 
-    cursor_pos = None
-
-    previous_toolbars = []
-    toolbars = []
-    toolbar_actions = {}
-    actions = {}
+    tbactions = ToolbarActions(main_window,
+					params.exclude_toolbars_from_streamdeck,
+					action_changed)
     update_actions = True
-    expanded_actions = {}
 
-    pages = []
+    pages = StreamDeckPages(
+		params.toolbars_on_every_streamdeck_page,
+		params.brackets_color_for_toolbars_on_every_streamdeck_page,
+		params.brackets_color_for_streamdeck_page_navigation_keys,
+		params.brackets_color_for_expandable_tool_buttons,
+		streamdeck.nbkeys)
 
-    current_page = None
+    useractivity = UserActivity(main_window, params.\
+			streamdeck_brightness_fade_when_user_inactive_for)
+
     last_action_pressed = None
 
     # Show information about the Stream Decks if no Stream Deck was open before
@@ -330,10 +185,13 @@ def streamdeck_update():
     pressed_keys = streamdeck.get_keypresses()
   except:
     streamdeck.close()
+    del(tbactions)
+    del(pages)
+    del(useractivity)
 
   # Process Stream Deck key press events if a current page is displayed
-  if streamdeck.is_open() and current_page is not None:
-    keystrings = current_page.split(";")
+  if streamdeck.is_open() and pages.current_page:
+    keystrings = pages.current_page.split(";")
 
     for is_long_press, key in pressed_keys:
 
@@ -345,41 +203,38 @@ def streamdeck_update():
         # Change the page
         if n in ("PAGEPREV", "PAGENEXT"):
           last_action_pressed = None
-
-          current_page_no = current_page_no + (-1 if n == "PAGEPREV" else +1)
-          current_page_no = min(len(pages) - 1, max(0, current_page_no))
-
-          prev_current_page = current_page
-          current_page = pages[current_page_no]
-
+          pages.flip(to_next_page = n == "PAGENEXT")
           update_streamdeck_keys = True
 
         # Act upon a real action
         else:
-          last_action_pressed = actions[n]
+          last_action_pressed = tbactions.actions[n]
 
           # Long key press?
           if is_long_press:
 
             # If the action is expandable, toggle its expansion and
             # force-rebuild all the pages
-            if n in expanded_actions:
-              expanded_actions[n] = not expanded_actions[n]
+            if n in tbactions.expanded_actions:
+              tbactions.expanded_actions[n] = \
+			not tbactions.expanded_actions[n]
               update_actions = True
               next_actions_update_tstamp = 0
 
             # If the action is a subaction of another action toggle the parent
             # action's expansion and force-rebuild all the pages
-            elif actions[n].issubactionof is not None and \
-		actions[n].issubactionof in expanded_actions:
-              expanded_actions[actions[n].issubactionof] = \
-				not expanded_actions[actions[n].issubactionof]
+            elif tbactions.actions[n].issubactionof is not None and \
+			tbactions.actions[n].issubactionof in \
+					tbactions.expanded_actions:
+              tbactions.expanded_actions[tbactions.actions[n].issubactionof] = \
+			not tbactions.expanded_actions[tbactions.actions[n].\
+								issubactionof]
               update_actions = True
               next_actions_update_tstamp = 0
 
           # Short key press: if the action is enabled, execute it
-          elif actions[n].enabled:
-            actions[n].action.trigger()
+          elif tbactions.actions[n].enabled:
+            tbactions.actions[n].action.trigger()
 
   # Should we get the current state of the FreeCAD toolbars and update the
   # Stream Deck pages?
@@ -387,244 +242,25 @@ def streamdeck_update():
 	now > next_actions_update_tstamp:
 
     # Update the currently displayed toolbar actions
-    if update_current_toolbar_actions():
+    if tbactions.extract_toolbar_actions_from_gui(update_actions):
+      update_actions = False
 
       # Find out the first of the new toolbars, if there are new toolbars, so
       # we can switch to it on the Stream Deck display
       new_toolbar = None
-      for t in toolbars:
-        if t not in previous_toolbars and \
+      for t in tbactions.toolbars:
+        if t not in tbactions.previous_toolbars and \
 		t not in params.toolbars_on_every_streamdeck_page:
           new_toolbar = t
           break
 
-      # Compose the new pages to display on the Stream Deck: the pages are
-      # described in a multiline string with each line in the following format:
-      #
-      # <key0>;<key1>;...;<keyN>
-      #
-      # and each key is composed of:
-      # <toolbarmarker>~[action]~[0|1]~[iconid]~[toptext]~[bottomtext]~
-      #    [leftbracketcolor]~[rightbracketcolor]
-      #
-      ptbc = params.brackets_color_for_toolbars_on_every_streamdeck_page
-      nkbc = params.brackets_color_for_streamdeck_page_navigation_keys
-      exbc = params.brackets_color_for_expandable_tool_buttons
+      # Rebuild the entire set of Stream Deck pages using the updated toolbars
+      # and actions
+      pages.rebuild_pages(tbactions)
 
-      # Create a pattern of one or more pages (hopefully just one) that contain
-      # the keys for the actions of the toolbars that should be repeated on
-      # every page at the beginning, the page navigation keys at the end and
-      # at least one free key slot in-between.
-      keys = []
-      for t in params.toolbars_on_every_streamdeck_page:
-        if t in toolbars:
-          last_action_i = len(toolbar_actions[t]) - 1
-          keys.extend(["[toolbar]~{}~{}~{}~{}~{}~{}~{}".
-			format(n, 1 if actions[n].enabled else 0,
-				actions[n].iconid,
-				actions[n].title, t,
-				ptbc if i == 0 else \
-				exbc if n in expanded_actions else "",
-				ptbc if i == last_action_i else \
-				exbc if not expanded_actions.get(n, True) or \
-					actions[n].islastsubaction else "")
-			for i, n in enumerate(toolbar_actions[t])])
-      nbkeys = len(keys)
-
-      empty_new_pages = []
-      while nbkeys > streamdeck.nbkeys - 3:	# The last page of the new empty
-						# pages should have 2 slots left
-						# for the page navigation keys
-						# and 1 empty slot
-        empty_new_pages.append(";".join(keys[:streamdeck.nbkeys - 2]) + \
-				";[pageprev];[pagenext]")
-        keys = keys[streamdeck.nbkeys - 2:]
-        nbkeys -= streamdeck.nbkeys - 2
-
-      empty_new_pages.append(";".join(keys) + \
-				(";" if keys and \
-				(streamdeck.nbkeys - nbkeys - 2) else "") + \
-				";".join(["[key]" for _ in \
-				range(streamdeck.nbkeys - nbkeys - 2)]) + \
-				";[pageprev];[pagenext]")
-
-      last_empty_new_page_i = len(empty_new_pages) - 1
-
-      # Create the pages of action keys
-      previous_pages = pages
-      pages = []
-      prev_page_toolbar = None
-
-      indiv_toolbar_page_maker_ctr = 0
-      page_marker = lambda: "{}#{}".format(t, indiv_toolbar_page_maker_ctr)
-
-      for t in toolbars:
-        if t not in params.toolbars_on_every_streamdeck_page:
-
-          # Get the list of key strings for this toolbar
-          keys = ["{}~{}~{}~{}~{}~{}~{}~{}".
-			format(t, n, 1 if actions[n].enabled else 0,
-				actions[n].iconid, actions[n].title, t,
-				exbc if n in expanded_actions else "",
-				exbc if not expanded_actions.get(n, True) or \
-					actions[n].islastsubaction else "")
-			for n in toolbar_actions[t]]
-
-          indiv_toolbar_page_maker_ctr = 0
-
-          # Add all the keys to the pages
-          for key in keys:
-
-            # If we don't have empty key slots left, add empty pages
-            if not pages or "[key]" not in pages[-1]:
-
-              # Replace the previous page's [pagenext] placeholder, if any
-              if pages:
-                pages[-1] = pages[-1].replace("[pagenext]",
-						"{}~PAGENEXT~~~~{}~~{}".
-						format(page_marker(), t, nkbc))
-
-              # Add new pages. Mark all the new pages' keys with a unique page
-              # marker.
-              for i, p in enumerate(empty_new_pages):
-
-                indiv_toolbar_page_maker_ctr += 1
-
-                new_page = p.replace("[toolbar]", page_marker())
-
-                # If we have more than one new page, replace the [pagenext]
-                # placeholder in all but the last new page
-                if i < last_empty_new_page_i:
-                  new_page = new_page.replace("[pagenext]",
-						"{}~PAGENEXT~~~~{}~~{}".
-						format(page_marker(), t, nkbc))
-                # Replace the first [pageprev] placeholder
-                if i == 0:
-                  new_page = new_page.replace("[pageprev]",
-						"{}~PAGEPREV~~~~{}~{}~".
-						format(page_marker(),
-							prev_page_toolbar,
-							nkbc) \
-						if prev_page_toolbar else \
-						"{}~~~~~~{}~".
-						format(page_marker(), nkbc), 1)
-
-
-                # Replace the remaining [pageprev] placeholders if any
-                else:
-                  new_page = new_page.replace("[pageprev]",
-						"{}~PAGEPREV~~~~{}~{}~".
-						format(page_marker(), t, nkbc))
-
-                # Add the new page to the pages
-                pages.append(new_page)
-
-              prev_page_toolbar = t
-
-            # Insert the next key into the pages
-            pages[-1] = pages[-1].replace("[key]", key, 1)
-
-          # Add blank keys to complete the last page for this toolbar
-          pages[-1] = pages[-1].replace("[key]", "{}~~~~~~~".
-					format(page_marker()))
-
-      # Replace the last [pagenext] placeholder if any
-      if pages:
-        pages[-1] = pages[-1].replace("[pagenext]", "{}~~~~~~~{}".
-					format(page_marker(), nkbc))
-
-      # Determine the page to be displayed / updated
-      prev_current_page = current_page
-      current_page_updated = False
-
-      # Do we have pages?
-      if pages:
-
-        # If we have no current page, pick the first one
-        if current_page is None:
-          current_page = pages[0]
-          current_page_no = 0
-
-        # If we have a new toolbar, switch to the first page containing keys
-        # marked with the name of the new toolbar
-        if new_toolbar:
-          r = re.compile("(^|;){}~".format(new_toolbar))
-          for page_no, page in enumerate(pages):
-            if r.search(page):
-              current_page_no = page_no
-              current_page = page
-              current_page_updated = True
-              break
-
-        # If any of the pages have changed, try to find a page in the new pages
-        # that matches it with regard to action names and placements, regardless
-        # of their enabled status, regardless of their icons and regardless of
-        # page navigation keys
-        if not current_page_updated and \
-		(len(previous_pages) != len(pages) or \
-		any([previous_pages[i] != p for i, p in enumerate(pages)])):
-          r = re.compile("^" + ";".join([("{}~({})?(~[^;~]*){{6}}".
-						format(t, n) \
-						if n in ("PAGEPREV",
-							"PAGENEXT") else \
-					"{}~{}~.?~[^;~]*?~{}~{}~{}~{}".
-						format(t, n, tt, bt, lbc, rbc))\
-					for t, n, _, _, tt, bt, lbc, rbc in \
-						[ks.split("~") \
-					for ks in current_page.split(";")]]) \
-			+ "$")
-          for page_no, page in enumerate(pages):
-            if r.match(page):
-              current_page_no = page_no
-              current_page = page
-              current_page_updated = True
-              break
-
-        # Try to switch to the page containing the last action pressed -
-        # i.e. same toolbar name and same action name...
-        if not current_page_updated and last_action_pressed:
-          r = re.compile("(^|;){}~{}~".
-				format(last_action_pressed.toolbar,
-					last_action_pressed.name))
-          for page_no, page in enumerate(pages):
-            if r.search(page):
-              current_page_no = page_no
-              current_page = page
-              current_page_updated = True
-              break
-
-          # ...and if the name of the last action pressed wasn't found and
-          # it's a subaction of another action, try to switch to the page
-          # containing the key corresponding to the parent action
-          if not current_page_updated and \
-		last_action_pressed.issubactionof is not None:
-            r = re.compile("(^|;){}~{}~".
-				format(last_action_pressed.toolbar,
-					last_action_pressed.issubactionof))
-            for page_no, page in enumerate(pages):
-              if r.search(page):
-                current_page_no = page_no
-                current_page = page
-                current_page_updated = True
-                break
-
-        # Try to switch to the first page containing keys marked with the name
-        # of the current toolbar
-        if not current_page_updated:
-          r = re.compile("(^|;){}~".
-				format(current_page.split("~", 1)[0].\
-					split("#", 1)[0]))
-          for page_no, page in enumerate(pages):
-            if r.search(page):
-              current_page_no = page_no
-              current_page = page
-              current_page_updated = True
-              break
-
-        # Default to the first page as a last resort
-        if not current_page_updated:
-          current_page = pages[0]
-          current_page_no = 0
+      # Find the new location of the current page in the newly-rebuilt pages
+      # and update it
+      pages.locate_current_page(new_toolbar, last_action_pressed)
 
       update_streamdeck_keys = True
 
@@ -635,56 +271,53 @@ def streamdeck_update():
   if streamdeck.is_open() and update_streamdeck_keys:
 
     # Update the keys that need updating
-    if not current_page:
+    if not pages.current_page:
 
       # Clear all the Stream Deck keys if we don't have a current page anymore
-      if prev_current_page:
+      if pages.previous_current_page:
         for keyno in range(streamdeck.nbkeys):
           try:
             streamdeck.set_key(keyno, None)
           except:
             streamdeck.close()
+            del(tbactions)
+            del(pages)
+            del(useractivity)
             break
 
     # Update the keys to display the current page as needed
     else:
-      keystrings = current_page.split(";")
-      if prev_current_page:
-        prev_keystrings = prev_current_page.split(";")
+      keystrings = pages.current_page.split(";")
+      if pages.previous_current_page:
+        prev_keystrings = pages.previous_current_page.split(";")
 
       for keyno, ks in enumerate(keystrings):
-        if not prev_current_page or ks != prev_keystrings[keyno]:
+        if not pages.previous_current_page or ks != prev_keystrings[keyno]:
 
           _, n, _, _, tt, bt, lbc, rbc = ks.split("~")
           img = n if n in ("", "PAGEPREV", "PAGENEXT") else \
-		actions[n].icon_as_pil_image()
+		tbactions.actions[n].icon_as_pil_image()
 
           try:
             streamdeck.set_key(keyno, img, tt, bt, lbc, rbc)
           except:
             streamdeck.close()
+            del(tbactions)
+            del(pages)
+            del(useractivity)
             break
 
-  # Determine if the user is active, if the Stream Deck is still open
+  # Determine if the user is active and set the brightness of the Stream Deck's
+  # display accordingly
   if streamdeck.is_open():
-
-    prev_cursor_pos = cursor_pos
-    cursor_pos = main_window.cursor().pos()
-
-    if prev_cursor_pos is None or cursor_pos != prev_cursor_pos:
-      last_cursor_movement_tstamp = now
-
-    active = not params.streamdeck_brightness_fade_when_user_inactive_for or \
-		params.streamdeck_brightness_fade_when_user_inactive_for > \
-			(now - last_cursor_movement_tstamp) or \
-		pressed_keys or \
-		update_streamdeck_keys
-
-    # Set the brightness of the Stream Deck's screen
     try:
-      streamdeck.set_brightness(active)
+      streamdeck.set_brightness(pressed_keys or update_streamdeck_keys or \
+				useractivity.is_active(now))
     except:
       streamdeck.close()
+      del(tbactions)
+      del(pages)
+      del(useractivity)
 
   # Reschedule ourselves
   timer.start(timer_reschedule_every_ms)
@@ -768,7 +401,7 @@ show_help = True
 # Timer interval in milliseconds
 timer_reschedule_every_ms = round(params.check_streamdeck_keypress_every * 1000)
 
-# What time we should update the toolbars and actions
+# What time we should update the toolbars and actions next
 next_actions_update_tstamp = 0
 
 # Get the main window

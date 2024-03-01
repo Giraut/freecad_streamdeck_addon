@@ -168,7 +168,7 @@ class StreamDeck():
       except:
         pass
 
-      # Set the brightness of the Stream Deck's screen to 0 to save the screen
+      # Set the brightness of the Stream Deck's display to 0 to preserve it
       try:
         self.dev.set_brightness(0)
       except:
@@ -330,7 +330,7 @@ class StreamDeck():
 
 
   def set_brightness(self, user_active = True):
-    """Set the brightness of the Stream Deck's screen
+    """Set the brightness of the Stream Deck's display
     If the user is active, set the maximum brightness
     If the user is inactive, set the brightness according to how long they have
     been inactive, down the the minimum brightness

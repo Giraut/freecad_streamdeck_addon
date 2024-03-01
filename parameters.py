@@ -7,7 +7,7 @@
 # Per-user parameters file in ~/.config (Linux) or %LOCALAPPDATA% (Windows)
 # Same format as this parameters file, overrides the parameters in this file
 # if it's present and readable
-user_parameters_file = "freecad_streamdeck_addons.py"
+user_parameters_file = "freecad_streamdeck_addon.py"
 
 # Type of the Stream Deck device to use
 # Comment out for any device type
