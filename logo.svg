@@ -24,9 +24,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:document-units="px"
      showgrid="true"
-     inkscape:zoom="1.4142136"
-     inkscape:cx="141.42135"
-     inkscape:cy="129.40054"
+     inkscape:zoom="5.6568544"
+     inkscape:cx="-37.653435"
+     inkscape:cy="63.993162"
      inkscape:window-width="2560"
      inkscape:window-height="1372"
      inkscape:window-x="0"
@@ -202,11 +202,11 @@
        transform="rotate(-35.349485)" />
     <rect
        style="fill:#000000;fill-opacity:0.978818;stroke:#000000;stroke-width:0;stroke-miterlimit:4;stroke-dasharray:none"
-       id="rect1826-6"
+       id="rect1826-3"
        width="13.296602"
        height="9.4975739"
-       x="80.073318"
-       y="45.887226"
-       transform="rotate(30.014419)" />
+       x="82.522736"
+       y="-47.382366"
+       transform="matrix(0.8156382,0.57856229,0.57856229,-0.8156382,0,0)" />
   </g>
 </svg>
