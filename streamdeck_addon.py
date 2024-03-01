@@ -39,24 +39,39 @@ class UserActivity():
 
     self.inactivity_time = inactivity_time
 
+    self.main_window_is_active = True
+
     self.cursor_pos = None
     self.last_cursor_movement_tstamp = None
 
 
 
   def is_active(self, now):
-    """Determine if the user is active based on the cursor movements
+    """Determine if the user is active based on cursor movements and whether
+    they occur while the main window is active
+    If the main window isn't active, the user is busy doing something else,
+    therefore reputed inactive here
     If the cursor hasn't moved within inactivity_time, return False
     """
 
     if not self.inactivity_time:
       return True
 
-    prev_cursor_pos = self.cursor_pos
-    self.cursor_pos = main_window.cursor().pos()
-
-    if prev_cursor_pos is None or self.cursor_pos != prev_cursor_pos:
+    if self.cursor_pos is None:
+      self.cursor_pos = main_window.cursor().pos()
       self.last_cursor_movement_tstamp = now
+      return True
+
+    prev_main_window_is_active = self.main_window_is_active
+    self.main_window_is_active = main_window.isActiveWindow()
+
+    prev_cursor_pos = self.cursor_pos
+
+    if self.main_window_is_active:
+      self.cursor_pos = self.main_window.cursor().pos()
+
+      if not prev_main_window_is_active or self.cursor_pos != prev_cursor_pos:
+        self.last_cursor_movement_tstamp = now
 
     return now - self.last_cursor_movement_tstamp < self.inactivity_time
 
@@ -310,9 +325,11 @@ def streamdeck_update():
   # Determine if the user is active and set the brightness of the Stream Deck's
   # display accordingly
   if streamdeck.is_open():
+
+    ua = useractivity.is_active(now)
+
     try:
-      streamdeck.set_brightness(pressed_keys or update_streamdeck_keys or \
-				useractivity.is_active(now))
+      streamdeck.set_brightness(pressed_keys or update_streamdeck_keys or ua)
     except:
       streamdeck.close()
       del(tbactions)
