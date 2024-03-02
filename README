@@ -1,6 +1,6 @@
                            FreeCAD Stream Deck Addon
                           ---------------------------
-                                    v0.0.8
+                                    v0.1.0
 
 
 This is an addon for FreeCAD to use an Elgato Stream Deck macropad as an input
@@ -50,88 +50,86 @@ python3 -m pip install or python -m pip install):
 
 - streamdeck
 - Pillow
-- appdirs
 
 
 
 Configuration
 -------------
 
-Edit parameters.py and change the values you want. The ones you're really
-interested in are:
+In the FreeCAD menu, go to Tools > Edit Parameters.
+All the parameters to control the addon are under BaseApp > StreamDeckAddon.
 
-- use_streamdeck_device_type
+The ones you're really interested in are:
+
+- Enabled
+
+  Enable or disable the addon. When it is disabled, the Stream Deck device is
+  fully released and usable by other applications while FreeCAD is running.
+
+- Device > Filter > UseDeviceType
 
   The type of the Stream Deck device you want to use if more than one device
-  is connected. Comment out to use any type of device.
+  is connected. E.g. "Stream Deck XL".
+  Leave blank to use a device of any type.
 
-- use_streamdeck_device_serial
+- Device > Filter > UseDeviceSerial
 
   The serial number of the Stream Deck device you want to use if more than one
-  device is connected. Comment out to use a device with any serial number.
+  device is connected. E.g. "A00NA325307HF5".
+  Leave blank to use a device with any serial number.
 
-- execute_shell_command_when_starting
+- StartStopCommands > ExecuteShellCommandWhenStarting
 
   Shell script to run when starting. Useful to kill another Stream Deck
   application such as streamdeck-ui and release the Stream Deck device
-  for use by this addon. Comment out to disable.
+  for use by this addon. E.g. "killall streamdeck".
+  Leave blank to disable.
 
-- execute_shell_command_when_stopping
+- StartStopCommands > ExecuteShellCommandWhenStopping
 
   Shell script to run when stopping. Useful to restart another Stream Deck
   application such as streamdeck-ui after the Stream Deck device has been
-  releases by this addon. Comment out to disable.
+  releases by this addon. E.g. "streamdeck &".
+  Leave blank to disable.
 
-- exclude_toolbars_from_streamdeck
+- ToolbarLists > ToolbarsExcluded_CommaSeparated
 
-  List of toolbar names you never want displayed on the Stream Deck regardless
-  of whether they're enabled in the main window, to reduce clutter. Comment
-  out or set to [] to display all the toolbars.
+  Comma-separated list of names of toolbars you never want displayed on the
+  Stream Deck regardless of whether they're enabled in the main window, to
+  reduce clutter. E.g. "Help,Navigation".
+  Leave blank to display all the toolbars on the Stream Deck.
 
-- toolbars_on_every_streamdeck_pages
+- ToolbarLists > ToolbarsOnEveryPage_CommaSeparated
 
-  List of toolbar names you want repeated on all the pages, so they're always
-  available regardless of the particular toolbar page you're in. Comment out
-  or set to [] if you don't want any toolbars repeated on all the pages.
+  Comma-separated list of names of toolbars you want repeated on all the Stream
+  Deck pages, so they're always available regardless of the particular toolbar
+  page you're in.  E.g. "Edit,View".
+  Note that those permanently-displayed toolbars are laid out on the Stream Deck
+  in the order they're listed.
 
   If your Stream Deck has enough keys - Stream Deck XL for example - you can
-  have more such permanently-displayed toolbar tools without multiplying the
-  number of pages.
+  have more permanently-displayed toolbar tools without multiplying the number
+  of pages.
 
   If your Stream Deck has fewer keys, you may want to have fewer
   permanently-displayed toolbar tools to free up more keys per page.
 
-- streamdeck_brightness
+  Leave blank if you don't want any toolbars repeated on all the pages.
+
+- Display > Brightness > BrightnessPercent
 
   How bright the Stream Deck's display should be. Percentage from 0% to 100%.
   The brighter, the more wear and burn in on the display of course.
 
-- streamdeck_brightness_fade_to
-- streamdeck_brightness_fade_time
-- streamdeck_brightness_fade_when_user_inactive_for
+- Display > ScreenSaver > Enabled
+- Display > ScreenSaver > FadeWhenUserInactiveForSeconds
+- Display > ScreenSaver > FadeToBrightness
+- Display > ScreenSaver > FadeTimeSeconds
 
   Stream Deck screen saver parameters.
-  Comment out streamdeck_brightness_fade_when_user_inactive_for or set it to 0
-  to disable the screen saver.
 
-
-
-User parameters
--------------------
-
-If the addon is installed system-wide, each user may want to define their own
-set of parameters.
-
-To do this, copy the parameters.py file as freecad_streamdeck_addon.py in the
-the local users configuration directory, typically:
-
-Linux:   ~/.config/
-Windows: %LOCALAPPDATA%\
-
-The format of the freecad_streamdeck_addon.py file is identical to that of
-parameters.py.
-
-The user parameters take precedence over those in parameters.py.
+Note that all addon setting changes in the Parameter Editor take effect
+immediately. You don't need to restart FreeCAD.
 
 
 

@@ -22,7 +22,7 @@ class StreamDeck():
   """
 
   def __init__(self, ttf_file, ttf_size, prev_image_file, next_image_file,
-		blank_image_file, broken_image_file, long_keypress_duration):
+		blank_image_file, broken_image_file):
     """__init__ method
     Load the specified TrueType font of the specified size and load the
     predefined images
@@ -48,21 +48,10 @@ class StreamDeck():
     _, font_text_min_y, _, font_text_max_y = self.font.getbbox("A!_j")
     self.margins = [font_text_max_y - font_text_min_y + 1] * 4
 
-    # How long is a long key press
-    self.long_keypress_duration = long_keypress_duration
-
-    # Minimum and maximum brightness
-    self.min_brightness = None
-    self.max_brightness = None
-
-    # Fade time
-    self.fade_time = None
 
 
 
-
-  def open(self, device_type, serial_number,
-		min_brightness, max_brightness, fade_time):
+  def open(self, device_type, serial_number):
     """Try to open and reset the Stream Deck device with the specified device
     type and serial number (case-independent)
     If device_type is None, any device type is valid
@@ -134,13 +123,9 @@ class StreamDeck():
                 pass
               self.dev = None
 
-            # If the open was successful, save the remaining device-related
-            # variables and stop trying
+            # If the open was successful, stop trying
             if self.dev is not None:
               self.nbkeys = self.dev.KEY_COUNT
-              self.min_brightness = min_brightness
-              self.max_brightness = max_brightness
-              self.fade_time = fade_time
               break
 
       else:
@@ -183,7 +168,8 @@ class StreamDeck():
       self.dev = None
       self.nbkeys = None
       self.__key_states_tstamps = None
-
+      self.__brightness = None
+      self.__fade_start_tstamp = None
 
 
   def is_open(self):
@@ -194,9 +180,11 @@ class StreamDeck():
 
 
 
-  def get_keypresses(self):
+  def get_keypresses(self, long_keypress_duration):
     """Detect short key presses - i.e. keys going back up after being down for
     a short time - or long key presses - i.e. keys staying down for a long time
+    Long keypress duration is how long a key press should last to be considered
+    a long press
     Return list of (is_long_press, keyno) tuples
     """
 
@@ -240,7 +228,7 @@ class StreamDeck():
           # If it was down for long enough, register a long key press event and
           # mark the key as down but "spent"
           if prev_key_states_tstamps[i] > 0 and \
-		now - prev_key_states_tstamps[i] > self.long_keypress_duration:
+		now - prev_key_states_tstamps[i] > long_keypress_duration:
             key_presses.append((True, i))
             self.__key_states_tstamps.append(0)
 
@@ -329,7 +317,8 @@ class StreamDeck():
 
 
 
-  def set_brightness(self, user_active = True):
+  def set_brightness(self, min_brightness, max_brightness, fade_time,
+			user_active = True):
     """Set the brightness of the Stream Deck's display
     If the user is active, set the maximum brightness
     If the user is inactive, set the brightness according to how long they have
@@ -341,8 +330,8 @@ class StreamDeck():
       self.__fade_start_tstamp = None
 
       # Set the maximum brightness if it's not already set
-      if self.__brightness is None or self.__brightness != self.max_brightness:
-        self.__brightness = self.max_brightness
+      if self.__brightness is None or self.__brightness != max_brightness:
+        self.__brightness = max_brightness
         self.dev.set_brightness(self.__brightness)
 
     # The user is inactive
@@ -354,11 +343,12 @@ class StreamDeck():
         self.__fade_start_tstamp = now
 
       # Calculate the brightness based on how long the user has been inactive
-      b = round(max(self.min_brightness,
-			self.max_brightness - \
-			(now - self.__fade_start_tstamp) * \
-			(self.max_brightness - self.min_brightness) / \
-			self.fade_time))
+      if fade_time == 0 or now - self.__fade_start_tstamp > fade_time:
+        b = min_brightness
+      else:
+        b = round(max(min_brightness,
+			max_brightness - (now - self.__fade_start_tstamp) * \
+			(max_brightness - min_brightness) / fade_time))
 
       # Set the brightness value if it's different from the one already set
       if b != self.__brightness:

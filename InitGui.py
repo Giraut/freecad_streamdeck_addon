@@ -1,7 +1,12 @@
 """FreeCAD Stream Deck Addon - Entry point
 """
 
-## Entry point
+## Modules
 #
 
-import streamdeck_addon
+import streamdeck_addon as addon
+
+
+
+## Entry point
+addon.start(FreeCAD)

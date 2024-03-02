@@ -78,13 +78,11 @@ class ToolbarActions():
   """Toolbar and toolbar actions extracted from the GUI
   """
 
-  def __init__(self, main_window, ignored_toolbars, action_changed_callback):
+  def __init__(self, main_window, action_changed_callback):
     """__init__ method
     """
 
     self.main_window = main_window
-
-    self.ignored_toolbars = ignored_toolbars
 
     self.action_changed_callback = action_changed_callback
 
@@ -97,9 +95,11 @@ class ToolbarActions():
 
 
 
-  def extract_toolbar_actions_from_gui(self, update_actions = True):
+  def extract_toolbar_actions_from_gui(self, excluded_toolbars,
+					update_actions = True):
     """update the ordered list of toolbar names, toolbar actions and subactions
     from the GUI
+    Excluded_toolbars is the list of toolbar names that should be ignored
     If update_actions is asserted, unconditionally update all the known actions
     If update_actions is not asserted, only update all the known actions if
     the toolbars have changed
@@ -115,7 +115,7 @@ class ToolbarActions():
 
       # Should we keep or ignore this toolbar?
       t = toolbar.objectName()
-      if not toolbar.isHidden() and t not in self.ignored_toolbars:
+      if not toolbar.isHidden() and t not in excluded_toolbars:
 
         # Keep the toolbar
         tbs.append(toolbar)

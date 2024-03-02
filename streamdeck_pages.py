@@ -13,19 +13,9 @@ import re
 
 class StreamDeckPages():
 
-  def __init__(self, toolbars_on_every_streamdeck_page,
-		brackets_color_for_toolbars_on_every_streamdeck_page,
-		brackets_color_for_streamdeck_page_navigation_keys,
-		brackets_color_for_expandable_tool_buttons,
-		nb_streamdeck_keys):
+  def __init__(self, nb_streamdeck_keys):
     """__init__ method
     """
-
-    self.toolbars_on_every_streamdeck_page = toolbars_on_every_streamdeck_page
-
-    self.ptbc = brackets_color_for_toolbars_on_every_streamdeck_page
-    self.nkbc = brackets_color_for_streamdeck_page_navigation_keys
-    self.exbc = brackets_color_for_expandable_tool_buttons
 
     self.nb_streamdeck_keys = nb_streamdeck_keys
 
@@ -38,10 +28,18 @@ class StreamDeckPages():
 
 
 
-  def rebuild_pages(self, tbactions):
+  def rebuild_pages(self, tbactions, repeated_toolbars,
+			bracket_color_repeated_toolbars,
+			bracket_color_page_nav_keys,
+			brackets_color_expandable_tools):
     """Rebuild Stream Deck pages given a list of toolbars and actions passed as
     a ToolbarActions object
     """
+
+    # Get the lowercase color names
+    ptbc = bracket_color_repeated_toolbars.lower()
+    nkbc = bracket_color_page_nav_keys.lower()
+    exbc = brackets_color_expandable_tools.lower()
 
     # Compose the new pages to display on the Stream Deck: the pages are
     # described in a multiline string with each line in the following format:
@@ -58,21 +56,18 @@ class StreamDeckPages():
     # every page at the beginning, the page navigation keys at the end and
     # at least one free key slot in-between.
     keys = []
-    for t in self.toolbars_on_every_streamdeck_page:
+    for t in repeated_toolbars:
       if t in tbactions.toolbars:
         last_action_i = len(tbactions.toolbar_actions[t]) - 1
         keys.extend(["[toolbar]~{}~{}~{}~{}~{}~{}~{}".
 		format(n, 1 if tbactions.actions[n].enabled else 0,
 			tbactions.actions[n].iconid,
 			tbactions.actions[n].title, t,
-			self.ptbc if i == 0 else \
-			self.exbc if n in tbactions.expanded_actions else \
-			"",
-			self.ptbc if i == last_action_i else \
-			self.exbc if \
-				not tbactions.expanded_actions.get(n, True) or \
-				tbactions.actions[n].islastsubaction else \
-			"")
+			ptbc if i == 0 else \
+			exbc if n in tbactions.expanded_actions else "",
+			ptbc if i == last_action_i else \
+			exbc if not tbactions.expanded_actions.get(n, True) or \
+				tbactions.actions[n].islastsubaction else "")
 		for i, n in enumerate(tbactions.toolbar_actions[t])])
     nbkeys = len(keys)
 
@@ -105,18 +100,16 @@ class StreamDeckPages():
     page_marker = lambda: "{}#{}".format(t, indiv_toolbar_page_maker_ctr)
 
     for t in tbactions.toolbars:
-      if t not in self.toolbars_on_every_streamdeck_page:
+      if t not in repeated_toolbars:
 
         # Get the list of key strings for this toolbar
         keys = ["{}~{}~{}~{}~{}~{}~{}~{}".
 		format(t, n, 1 if tbactions.actions[n].enabled else 0,
 			tbactions.actions[n].iconid,
 			tbactions.actions[n].title, t,
-			self.exbc if n in tbactions.expanded_actions else "",
-			self.exbc if \
-				not tbactions.expanded_actions.get(n, True) or \
-				tbactions.actions[n].islastsubaction else \
-			"")
+			exbc if n in tbactions.expanded_actions else "",
+			exbc if not tbactions.expanded_actions.get(n, True) or \
+				tbactions.actions[n].islastsubaction else "")
 		for n in tbactions.toolbar_actions[t]]
 
         indiv_toolbar_page_maker_ctr = 0
@@ -131,8 +124,8 @@ class StreamDeckPages():
             if self.pages:
               self.pages[-1] = self.pages[-1].replace("[pagenext]",
 							"{}~PAGENEXT~~~~{}~~{}".
-							format(page_marker(), t,
-								self.nkbc))
+							format(page_marker(),
+								t, nkbc))
 
             # Add new pages. Mark all the new pages' keys with a unique page
             # marker.
@@ -147,8 +140,7 @@ class StreamDeckPages():
               if i < last_empty_new_page_i:
                 new_page = new_page.replace("[pagenext]",
 						"{}~PAGENEXT~~~~{}~~{}".
-						format(page_marker(), t,
-							self.nkbc))
+						format(page_marker(), t, nkbc))
 
               # Replace the first [pageprev] placeholder
               if i == 0:
@@ -156,18 +148,16 @@ class StreamDeckPages():
 						"{}~PAGEPREV~~~~{}~{}~".
 						format(page_marker(),
 							prev_page_toolbar,
-							self.nkbc) \
+							nkbc) \
 						if prev_page_toolbar else \
 						"{}~~~~~~{}~".
-						format(page_marker(),
-							self.nkbc), 1)
+						format(page_marker(), nkbc), 1)
 
               # Replace the remaining [pageprev] placeholders if any
               else:
                 new_page = new_page.replace("[pageprev]",
 						"{}~PAGEPREV~~~~{}~{}~".
-						format(page_marker(), t,
-							self.nkbc))
+						format(page_marker(), t, nkbc))
 
               # Add the new page to the pages
               self.pages.append(new_page)
@@ -184,8 +174,7 @@ class StreamDeckPages():
     # Replace the last [pagenext] placeholder if any
     if self.pages:
       self.pages[-1] = self.pages[-1].replace("[pagenext]", "{}~~~~~~~{}".
-						format(page_marker(),
-							self.nkbc))
+						format(page_marker(), nkbc))
 
 
 
