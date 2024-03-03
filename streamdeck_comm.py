@@ -281,35 +281,35 @@ class StreamDeck():
       image = PILHelper.create_scaled_image(self.dev, broken_image,
 						margins = self.margins)
 
+    xm = image.width / 2	# Middle horizontal coordinate in the image
+    xr = image.width - 1	# Right horizontal coordinate in the image
+    yb = image.height - 1	# Bottom vertical coordinate in the image
+
     # If we have text, write it on top of the image
     if top_text or bottom_text or left_bracket_color or right_bracket_color:
 
       draw = ImageDraw.Draw(image)
 
       if top_text:
-        draw.text((image.width / 2, 0),
-			text = top_text,
+        draw.text((xm, 0), text = top_text,
 			font = self.font, anchor = "mt", fill = "white")
 
       if bottom_text:
-        draw.text((image.width / 2, image.height - 1),
-			text = bottom_text,
+        draw.text((xm, yb), text = bottom_text,
 			font = self.font, anchor = "mb", fill = "white")
 
       if left_bracket_color:
         draw.line([(self.margins[3] - 2, self.margins[0] + 2),
 			(4, self.margins[0] + 2),
-			(4, image.height - self.margins[2] - 3),
-			(self.margins[3] - 2,
-				image.height - self.margins[2] - 3)],
+			(4, yb - self.margins[2] - 2),
+			(self.margins[3] - 2, yb - self.margins[2] - 2)],
 			width = 5, fill = left_bracket_color)
 
       if right_bracket_color:
-        draw.line([(image.width - self.margins[1], self.margins[0] + 2),
-			(image.width - 3, self.margins[0] + 2),
-			(image.width - 3, image.height - self.margins[2] - 5),
-			(image.width - self.margins[1],
-				image.height - self.margins[2] - 5)],
+        draw.line([(xr - self.margins[1] + 2, self.margins[0] + 2),
+			(xr - 4, self.margins[0] + 2),
+			(xr - 4, yb - self.margins[2] - 2),
+			(xr - self.margins[1] + 2, yb - self.margins[2] - 2)],
 			width = 5, fill = right_bracket_color)
 
     # Upload the image to the key
