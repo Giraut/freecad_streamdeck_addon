@@ -50,11 +50,11 @@ The ones you're really interested in are:
 
 - **Device ▶ Filter ▶ UseDeviceType**
 
-  The type of the Stream Deck device you want to use if more than one device is connected. E.g. "Stream Deck XL". Leave blank to use a device of any type.
+  The type of the Stream Deck device you want to use if more than one device is connected. E.g. `Stream Deck XL`. Leave blank to use a device of any type.
 
 - **Device ▶ Filter ▶ UseDeviceSerial**
 
-  The serial number of the Stream Deck device you want to use if more than one device is connected. E.g. "A00NA325307HF5". Leave blank to use a device with any serial number.
+  The serial number of the Stream Deck device you want to use if more than one device is connected. E.g. `A00NA325307HF5`. Leave blank to use a device with any serial number.
 
 - **StartStopCommands ▶ ExecuteShellCommandWhenStarting**
 
@@ -66,11 +66,11 @@ The ones you're really interested in are:
 
 - **ToolbarLists ▶ ToolbarsExcluded_CommaSeparated**
 
-  Comma-separated list of names of toolbars you never want displayed on the Stream Deck regardless of whether they're enabled in the main window, to reduce clutter. E.g. "Help,Navigation". Leave blank to display all the toolbars on the Stream Deck.
+  Comma-separated list of names of toolbars you never want displayed on the Stream Deck regardless of whether they're enabled in the main window, to reduce clutter. E.g. `Help,Navigation`. Leave blank to display all the toolbars on the Stream Deck.
 
 - **ToolbarLists ▶ ToolbarsOnEveryPage_CommaSeparated**
 
-  Comma-separated list of names of toolbars you want repeated on all the Stream Deck pages, so they're always available regardless of the particular toolbar page you're in.  E.g. "Edit,View".  Note that those permanently-displayed toolbars are laid out on the Stream Deck in the order they're listed.
+  Comma-separated list of names of toolbars you want repeated on all the Stream Deck pages, so they're always available regardless of the particular toolbar page you're in.  E.g. `Edit,View`.  Note that those permanently-displayed toolbars are laid out on the Stream Deck in the order they're listed.
 
   If your Stream Deck has enough keys - Stream Deck XL for example - you can have more permanently-displayed toolbar tools without multiplying the number of pages.
 
