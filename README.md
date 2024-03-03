@@ -5,7 +5,7 @@ FreeCAD addon to use an [Elgato](https://www.elgato.com) [Stream Deck](https://w
 
 ![](https://github.com/Giraut/freecad_streamdeck_addon/assets/37288252/ddb8ef90-c9a4-4eaa-a3de-2d2e6a5f98d4)
 
-The toolbar tools displayed in the FreeCAD window are mirrored in real-time on the Stream Deck keys. When a is pressed, the corresponding tool is applied as if selected in the main window.
+The toolbar tools displayed in the FreeCAD window are mirrored in real-time on the Stream Deck keys. When a key is pressed, the corresponding tool is applied as if selected in the main window.
 
 When a Stream Deck key representing a tool with a sub-menu is long-pressed, the tool is expanded to show the additional tools in the sub-menu. When any of the expanded sub-menu tools is long-pressed again, the sub-menu is collapsed back to a single tool. The tools with sub-menus are shown between red brackets.
 
