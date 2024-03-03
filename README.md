@@ -103,5 +103,4 @@ All setting changes take effect immediately. You don't need to restart FreeCAD.
 - Tested with FreeCAD 0.22 on Linux and Windows, with a Stream Deck Mk2 and a
   Stream Deck XL. It may or may not work with other models.
 
-- This is very alpha software. It's very rough on the edged and probably buggy.
-  Please bear with me as I make it nicer 🙂
+- This software is still under development. Please bear with me as I make it nicer 🙂
