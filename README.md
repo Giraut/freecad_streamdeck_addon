@@ -1,6 +1,6 @@
 # FreeCAD Stream Deck Addon
 ## v0.1.0
----
+
 FreeCAD addon to use an [Elgato](https://www.elgato.com) [Stream Deck](https://www.elgato.com/us/en/s/welcome-to-stream-deck) macropad as an input device.
 
 ![](https://github.com/Giraut/freecad_streamdeck_addon/assets/37288252/ddb8ef90-c9a4-4eaa-a3de-2d2e6a5f98d4)
