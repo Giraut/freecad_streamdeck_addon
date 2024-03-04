@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
 
-  <name>Streamdeck Addon</name>
+  <name>Stream Deck Addon</name>
   <description>FreeCAD addon to use an Elgato Stream Deck macropad as an input device.</description>
   <version>0.1.2</version>
   <date>2024-03-04</date>
