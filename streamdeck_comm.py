@@ -198,7 +198,7 @@ class StreamDeck():
     if st is None:
       key_states = None
     else:
-      key_states = st[ControlType.KEY]
+      key_states = st[ControlType.KEY][:self.dev.KEY_COUNT]
 
     # If there was no previous key press timestamps, initialize the current
     # key press timestamps and return empty key presses
