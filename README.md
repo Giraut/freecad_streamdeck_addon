@@ -102,7 +102,6 @@ All setting changes take effect immediately. You don't need to restart FreeCAD.
   Either the addon has control of the Stream Deck device or the other
   application does, but not both at the same time.
 
-- Tested with FreeCAD 0.22 on Linux and Windows, with a Stream Deck Mk2 and a
-  Stream Deck XL. It may or may not work with other models.
+- Tested with FreeCAD 0.22 on Linux and Windows, with a Stream Deck Mk2, Stream Deck XL and Stream Deck +. It may or may not work with other models.
 
 - This software is still under development. Please bear with me as I make it nicer 🙂
