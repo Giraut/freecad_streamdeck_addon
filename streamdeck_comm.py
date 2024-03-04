@@ -195,10 +195,10 @@ class StreamDeck():
 
     # Read key state events from the Stream Deck
     st = self.dev._read_control_states()
-    if st is None:
-      key_states = None
-    else:
+    if st is not None and ControlType.KEY in st:
       key_states = st[ControlType.KEY][:self.dev.KEY_COUNT]
+    else:
+      key_states = None
 
     # If there was no previous key press timestamps, initialize the current
     # key press timestamps and return empty key presses
