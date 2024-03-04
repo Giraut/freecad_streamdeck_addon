@@ -12,7 +12,7 @@
   <icon>logo.svg</icon>
 
   <depend optional="false" type="python">streamdeck</depend>
-  <depend optional="false" type="python">Pillow</depend>
+  <depend optional="false" type="python">pillow</depend>
 
   <content>
     <workbench/>	<!-- This addon is neither a workbench, a macro or a preference pack, but FreeCAD requires at least one content entry to load it -->
