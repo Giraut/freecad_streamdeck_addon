@@ -3,7 +3,7 @@
 
 FreeCAD addon to use an [Elgato](https://www.elgato.com) [Stream Deck](https://www.elgato.com/us/en/s/welcome-to-stream-deck) macropad as an input device.
 
-![](https://github.com/Giraut/freecad_streamdeck_addon/assets/37288252/00157a56-c2a0-4a89-bcd7-ffc42e2752fb)
+![](images/stream_deck.png)
 
 The toolbar tools displayed in the FreeCAD window are mirrored in real-time on the Stream Deck keys. When a key is pressed, the corresponding tool is applied as if selected in the main window.
 
@@ -42,7 +42,7 @@ You also need to install the following Python modules (e.g. with `python -m pip 
 
 In the FreeCAD menu, go to `Tools ▶ Edit Parameters`.  All the settings to control the addon are under `BaseApp ▶ StreamDeckAddon`.
 
-![](https://github.com/Giraut/freecad_streamdeck_addon/assets/37288252/c79150aa-aa47-4d0d-b88d-5425a5a179c8)
+![](images/parameter_editor.png)
 
 The ones you're really interested in are:
 
