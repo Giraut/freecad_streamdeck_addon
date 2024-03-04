@@ -6,8 +6,8 @@
   <version>0.1.2</version>
   <date>2024-03-04</date>
   <license file="LICENSE">GPL-3.0-or-later</license>
-  <url branch="main" type="repository">https://github.com/Giraut/freecad_streamdeck_addon.git</url>
-  <url type="readme">https://github.com/Giraut/freecad_streamdeck_addon.git/raw/main/README.md</url>
+  <url branch="main" type="repository">https://github.com/Giraut/freecad_streamdeck_addon</url>
+  <url type="readme">https://github.com/Giraut/freecad_streamdeck_addon/raw/main/README.md</url>
   <author>Giraut</author>
   <icon>logo.svg</icon>
 
