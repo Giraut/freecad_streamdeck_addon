@@ -1,5 +1,5 @@
 # FreeCAD Stream Deck Addon
-## v0.1.3
+## v0.1.4
 
 FreeCAD addon to use an [Elgato](https://www.elgato.com) [Stream Deck](https://www.elgato.com/us/en/s/welcome-to-stream-deck) macropad as an input device.
 
@@ -13,7 +13,7 @@ The toolbar tools are organized in pages of keys. A toolbar occupies its own set
 
 Certain toolbars may be displayed on all the pages. Those tools are shown between blue brackets. Other toolbars can be excluded from the Stream Deck and never shown.
 
-Two keys at the bottom right of the Stream Deck are used to change pages.
+Two keys at the bottom right of the Stream Deck are used to change pages. If the Stream Deck has dials, the dials are used to change pages instead.
 
 
 

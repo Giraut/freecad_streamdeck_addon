@@ -219,7 +219,7 @@ def streamdeck_update():
     tbactions = ToolbarActions(main_window, action_changed)
     update_actions = True
 
-    pages = StreamDeckPages(streamdeck.nbkeys)
+    pages = StreamDeckPages(streamdeck.nbkeys, streamdeck.nbdials == 0)
 
     useractivity = UserActivity(main_window)
 
@@ -240,6 +240,8 @@ def streamdeck_update():
 		format(params.bracket_color_expandable_tools.lower()))
         print("Buttons between {} brackets are available on all pages".
 		format(params.bracket_color_repeated_toolbars.lower()))
+        if streamdeck.nbdials > 0:
+          print("Spin the dials to change pages")
 
         show_help = False
 
@@ -249,7 +251,7 @@ def streamdeck_update():
 
   # Get Stream Deck key press events
   try:
-    pressed_keys = streamdeck.get_keypresses(params.long_keypress_duration)
+    input_events = streamdeck.get_input_events(params.long_keypress_duration)
   except:
     streamdeck.close()
     del(tbactions)
@@ -259,53 +261,66 @@ def streamdeck_update():
   # Is the Stream Deck still open?
   if streamdeck.is_open():
 
-    # Process Stream Deck key press events if a current page is displayed
+    # Process Stream Deck input events if a current page is displayed
     if pages.current_page:
       keystrings = pages.current_page.split(";")
 
-      for is_long_press, key in pressed_keys:
+      for event_type, val in input_events:
 
-        n = keystrings[key].split("~")[1]
+        # Is the event a key press?
+        if event_type in (streamdeck.SHORT_KEYPRESS, streamdeck.LONG_KEYPRESS):
 
-        # Is the key occupied?
-        if n:
+          # Get the action name
+          n = keystrings[val].split("~")[1]
 
-          # Change the page
-          if n in ("PAGEPREV", "PAGENEXT"):
-            last_action_pressed = None
-            pages.flip(to_next_page = n == "PAGENEXT")
-            update_streamdeck_keys = True
+          # Is the key occupied?
+          if n:
 
-          # Act upon a real action
-          else:
-            last_action_pressed = tbactions.actions[n]
+            # Change the page
+            if n in ("PAGEPREV", "PAGENEXT"):
+              last_action_pressed = None
+              if pages.flip(1 if n == "PAGENEXT" else -1):
+                update_streamdeck_keys = True
 
-            # Long key press?
-            if is_long_press:
+            # Act upon a real action
+            else:
+              last_action_pressed = tbactions.actions[n]
 
-              # If the action is expandable, toggle its expansion and
-              # force-rebuild all the pages
-              if n in tbactions.expanded_actions:
-                tbactions.expanded_actions[n] = \
+              # Is the event a long key press?
+              if event_type == streamdeck.LONG_KEYPRESS:
+
+                # If the action is expandable, toggle its expansion and
+                # force-rebuild all the pages
+                if n in tbactions.expanded_actions:
+                  tbactions.expanded_actions[n] = \
 			not tbactions.expanded_actions[n]
-                update_actions = True
-                next_actions_update_tstamp = 0
+                  update_actions = True
+                  next_actions_update_tstamp = 0
 
-              # If the action is a subaction of another action toggle the parent
-              # action's expansion and force-rebuild all the pages
-              elif tbactions.actions[n].issubactionof is not None and \
+                # If the action is a subaction of another action toggle the
+                # parent action's expansion and force-rebuild all the pages
+                elif tbactions.actions[n].issubactionof is not None and \
 			tbactions.actions[n].issubactionof in \
 					tbactions.expanded_actions:
-                tbactions.expanded_actions[
+                  tbactions.expanded_actions[
 				tbactions.actions[n].issubactionof] = \
 			not tbactions.expanded_actions[
 				tbactions.actions[n].issubactionof]
-                update_actions = True
-                next_actions_update_tstamp = 0
+                  update_actions = True
+                  next_actions_update_tstamp = 0
 
-            # Short key press: if the action is enabled, execute it
-            elif tbactions.actions[n].enabled:
-              tbactions.actions[n].action.trigger()
+              # If the event is a short key press and the action is enabled,
+              # execute it
+              elif tbactions.actions[n].enabled:
+                tbactions.actions[n].action.trigger()
+
+        # Is the event a dial spin?
+        elif event_type == streamdeck.DIAL_SPIN_CLICKS:
+
+          # Flip as many pages as we got dial clicks
+          last_action_pressed = None
+          if pages.flip(val):
+            update_streamdeck_keys = True
 
     # Should we get the current state of the FreeCAD toolbars and update the
     # Stream Deck pages?
@@ -387,7 +402,7 @@ def streamdeck_update():
 
     ua = useractivity.is_active(now, params.fade_after_secs_inactivity \
 					if params.fading_enabled else None,
-					[pressed_keys, parameters_synchronized])
+					[input_events, parameters_synchronized])
     try:
       streamdeck.set_brightness(params.min_brightness, params.max_brightness,
 				params.fade_time, ua)
@@ -449,8 +464,7 @@ def start(FreeCAD):
   retry_open_at_tstamp = 0
 
   # Timer interval in milliseconds
-  timer_reschedule_every_ms = round(params.check_streamdeck_keypress_every \
-					* 1000)
+  timer_reschedule_every_ms = round(params.check_streamdeck_every * 1000)
 
   # What time we should update the toolbars and actions next
   next_actions_update_tstamp = 0

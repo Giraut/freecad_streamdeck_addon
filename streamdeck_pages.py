@@ -13,11 +13,12 @@ import re
 
 class StreamDeckPages():
 
-  def __init__(self, nb_streamdeck_keys):
+  def __init__(self, nb_streamdeck_keys, with_nav_keys):
     """__init__ method
     """
 
     self.nb_streamdeck_keys = nb_streamdeck_keys
+    self.with_nav_keys = with_nav_keys
 
     self.previous_pages = []
     self.pages = []
@@ -71,23 +72,30 @@ class StreamDeckPages():
 		for i, n in enumerate(tbactions.toolbar_actions[t])])
     nbkeys = len(keys)
 
+    reserve_nb_last_keys = 2 if self.with_nav_keys else 0
+    last_2_page_keys = ";[pageprev];[pagenext]" if self.with_nav_keys else ""
+
     empty_new_pages = []
-    while nbkeys > self.nb_streamdeck_keys - 3:	# The last page of the new empty
-						# pages should have 2 slots left
-						# for the page navigation keys
-						# and 1 empty slot
-      empty_new_pages.append(";".join(keys[:self.nb_streamdeck_keys - 2]) + \
-				";[pageprev];[pagenext]")
-      keys = keys[self.nb_streamdeck_keys - 2:]
-      nbkeys -= self.nb_streamdeck_keys - 2
+
+    # The last page of the new empty pages should have however many reserved
+    # slots and at lease 1 empty slot for a key left
+    while nbkeys > self.nb_streamdeck_keys - reserve_nb_last_keys - 1:
+      empty_new_pages.append(";".join(keys[:self.nb_streamdeck_keys - \
+						reserve_nb_last_keys]) + \
+				last_2_page_keys)
+      keys = keys[self.nb_streamdeck_keys - reserve_nb_last_keys:]
+      nbkeys -= self.nb_streamdeck_keys - reserve_nb_last_keys
 
     empty_new_pages.append(";".join(keys) + \
 				(";" if keys and \
-					(self.nb_streamdeck_keys - nbkeys - 2) \
+					(self.nb_streamdeck_keys - nbkeys - \
+						reserve_nb_last_keys) \
 					else "") + \
 				";".join(["[key]" for _ in \
-				range(self.nb_streamdeck_keys - nbkeys - 2)]) \
-				+ ";[pageprev];[pagenext]")
+					range(self.nb_streamdeck_keys - \
+						nbkeys - \
+						reserve_nb_last_keys)]) \
+				+ last_2_page_keys)
 
     last_empty_new_page_i = len(empty_new_pages) - 1
 
@@ -120,8 +128,9 @@ class StreamDeckPages():
           # If we don't have empty key slots left, add empty pages
           if not self.pages or "[key]" not in self.pages[-1]:
 
-            # Replace the previous page's [pagenext] placeholder, if any
-            if self.pages:
+            # If we have navigation keys, replace the previous page's [pagenext]
+            # placeholder if any
+            if self.with_nav_keys and self.pages:
               self.pages[-1] = self.pages[-1].replace("[pagenext]",
 							"{}~PAGENEXT~~~~{}~~{}".
 							format(page_marker(),
@@ -135,16 +144,19 @@ class StreamDeckPages():
 
               new_page = p.replace("[toolbar]", page_marker())
 
-              # If we have more than one new page, replace the [pagenext]
-              # placeholder in all but the last new page
-              if i < last_empty_new_page_i:
-                new_page = new_page.replace("[pagenext]",
+              # Do we have navigation keys?
+              if self.with_nav_keys:
+
+                # If we have more than one new page, replace the [pagenext]
+                # placeholder in all but the last new page
+                if i < last_empty_new_page_i:
+                  new_page = new_page.replace("[pagenext]",
 						"{}~PAGENEXT~~~~{}~~{}".
 						format(page_marker(), t, nkbc))
 
-              # Replace the first [pageprev] placeholder
-              if i == 0:
-                new_page = new_page.replace("[pageprev]",
+                # Replace the first [pageprev] placeholder
+                if i == 0:
+                  new_page = new_page.replace("[pageprev]",
 						"{}~PAGEPREV~~~~{}~{}~".
 						format(page_marker(),
 							prev_page_toolbar,
@@ -153,9 +165,9 @@ class StreamDeckPages():
 						"{}~~~~~~{}~".
 						format(page_marker(), nkbc), 1)
 
-              # Replace the remaining [pageprev] placeholders if any
-              else:
-                new_page = new_page.replace("[pageprev]",
+                # Replace the remaining [pageprev] placeholders if any
+                else:
+                  new_page = new_page.replace("[pageprev]",
 						"{}~PAGEPREV~~~~{}~{}~".
 						format(page_marker(), t, nkbc))
 
@@ -171,8 +183,8 @@ class StreamDeckPages():
         self.pages[-1] = self.pages[-1].replace("[key]", "{}~~~~~~~".
 						format(page_marker()))
 
-    # Replace the last [pagenext] placeholder if any
-    if self.pages:
+    # If we have navigation keys, replace the last [pagenext] placeholder if any
+    if self.with_nav_keys and self.pages:
       self.pages[-1] = self.pages[-1].replace("[pagenext]", "{}~~~~~~~{}".
 						format(page_marker(), nkbc))
 
@@ -274,15 +286,20 @@ class StreamDeckPages():
 
 
 
-  def flip(self, to_next_page):
-    """Increment or decrement the page number and change the current page to the
-    previous page or the next page depending on whether to_next_page is asserted
-    or not
+  def flip(self, nbpages):
+    """Jump nbpages pages: before the current page if nbpages <0, after if
+    nbpages >0
+    Return True if the page was changed
     """
 
-    self.current_page_no += (1 if to_next_page else -1)
-    self.current_page_no = min(len(self.pages) - 1,
-				max(0, self.current_page_no))
+    new_page_no = min(len(self.pages) - 1,
+			max(0, self.current_page_no + nbpages))
 
+    if new_page_no == self.current_page_no:
+      return False
+
+    self.current_page_no = new_page_no
     self.previous_current_page = self.current_page
     self.current_page = self.pages[self.current_page_no]
+
+    return True

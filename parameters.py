@@ -136,8 +136,8 @@ class UserParameters():
     self.next_streamdeck_key_icon = "next.png"
     self.blank_streamdeck_key_icon = "blank.png"
     self.broken_streamdeck_key_icon = "broken.png"
-    self.check_streamdeck_keypress_every = 0.1
-    self.check_toolbar_updates_every = 0.5
+    self.check_streamdeck_every = 0.1 #s
+    self.check_toolbar_updates_every = 0.5 #s
 
     # Attach our callback to detect when parameters are changed by the user
     self.__paramobserver = _ParamObserver()

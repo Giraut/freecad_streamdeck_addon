@@ -8,7 +8,7 @@ from time import time
 
 from PIL import Image, ImageDraw, ImageFont
 
-from StreamDeck.Devices.StreamDeck import ControlType
+from StreamDeck.Devices.StreamDeck import ControlType, DialEventType
 from StreamDeck.DeviceManager import DeviceManager
 from StreamDeck.ImageHelpers import PILHelper
 
@@ -21,6 +21,13 @@ class StreamDeck():
   """Stream Deck handling class
   """
 
+  # Input event types
+  SHORT_KEYPRESS = 0
+  LONG_KEYPRESS = 1
+  DIAL_SPIN_CLICKS = 2
+
+
+
   def __init__(self, ttf_file, ttf_size, prev_image_file, next_image_file,
 		blank_image_file, broken_image_file):
     """__init__ method
@@ -30,6 +37,8 @@ class StreamDeck():
 
     self.dev = None
     self.nbkeys = None
+    self.nbdials = None
+
     self.__key_states_tstamps = None
     self.__brightness = None
     self.__fade_start_tstamp = None
@@ -125,7 +134,8 @@ class StreamDeck():
 
             # If the open was successful, stop trying
             if self.dev is not None:
-              self.nbkeys = self.dev.KEY_COUNT
+              self.nbkeys = self.dev.key_count()
+              self.nbdials = self.dev.dial_count()
               break
 
       else:
@@ -180,73 +190,105 @@ class StreamDeck():
 
 
 
-  def get_keypresses(self, long_keypress_duration):
+  def get_input_events(self, long_keypress_duration):
     """Detect short key presses - i.e. keys going back up after being down for
     a short time - or long key presses - i.e. keys staying down for a long time
     Long keypress duration is how long a key press should last to be considered
     a long press
-    Return list of (is_long_press, keyno) tuples
+    Also detect dial spin clicks if the device has dials
+    Return a list of (event_type, keyno or dial_spin_clicks) tuples
     """
 
-    now = time()
+    input_events = []
 
-    prev_key_states_tstamps = self.__key_states_tstamps
-    key_presses = []
+    # Get and process input events until we run out
+    while True:
 
-    # Read key state events from the Stream Deck
-    st = self.dev._read_control_states()
-    if st is not None and ControlType.KEY in st:
-      key_states = st[ControlType.KEY][:self.dev.KEY_COUNT]
-    else:
+      now = time()
+
+      prev_key_states_tstamps = self.__key_states_tstamps
+
+      # Read events from the Stream Deck
+      events = self.dev._read_control_states()
       key_states = None
+      dial_spin_clicks = 0	# -n = dials spun n clicks counterclockwise,
+				# +n = dials spun n clicks clockwise
 
-    # If there was no previous key press timestamps, initialize the current
-    # key press timestamps and return empty key presses
-    if not prev_key_states_tstamps:
-      self.__key_states_tstamps = [None] * self.dev.KEY_COUNT
-      return key_presses
+      # Process the events
+      for ct in events if events is not None else {}:
 
-    self.__key_states_tstamps = []
+        # Is the event a key state change?
+        if ct == ControlType.KEY:
+          key_states = events[ct][:self.dev.KEY_COUNT]
 
-    # Determine the current key states
-    if key_states is None:
-      key_states = [ts is not None for ts in prev_key_states_tstamps]
+        # Do we have dial events?
+        elif ct == ControlType.DIAL:
 
-    # Determine the current key presses
-    for i, ks in enumerate(key_states):
+          # Process the dial events
+          for dt in events[ct]:
 
-      # The key is down
-      if ks:
+            # Is the event a dial turn?
+            if dt == DialEventType.TURN:
 
-        # If it was up, record the time it went down
-        if prev_key_states_tstamps[i] is None:
-          self.__key_states_tstamps.append(now)
+              # Use all the dial indiscriminately to count the overall number
+              # of dial clicks clockwise or counterclockwise
+              dial_spin_clicks = sum(events[ct][dt])
 
-        # It was already down
+      # If we have a non-zero number of dial clicks, add it to the input events
+      if dial_spin_clicks:
+        input_events.append((self.DIAL_SPIN_CLICKS, dial_spin_clicks))
+
+      # If there was no previous key press timestamps, initialize the current
+      # key press timestamps and return empty key presses
+      if not prev_key_states_tstamps:
+        self.__key_states_tstamps = [None] * self.dev.KEY_COUNT
+        return input_events
+
+      self.__key_states_tstamps = []
+
+      # Determine the current key states
+      if key_states is None:
+        key_states = [ts is not None for ts in prev_key_states_tstamps]
+
+      # Determine the current key presses
+      for i, ks in enumerate(key_states):
+
+        # The key is down
+        if ks:
+
+          # If it was up, record the time it went down
+          if prev_key_states_tstamps[i] is None:
+            self.__key_states_tstamps.append(now)
+
+          # It was already down
+          else:
+
+            # If it was down for long enough, register a long key press event
+            # and mark the key as down but "spent"
+            if prev_key_states_tstamps[i] > 0 and \
+		now - prev_key_states_tstamps[i] > long_keypress_duration:
+              input_events.append((self.LONG_KEYPRESS, i))
+              self.__key_states_tstamps.append(0)
+
+            # The key was down but already "spent": carry on the previous state
+            else:
+              self.__key_states_tstamps.append(prev_key_states_tstamps[i])
+
+        # The key is up
         else:
 
-          # If it was down for long enough, register a long key press event and
-          # mark the key as down but "spent"
-          if prev_key_states_tstamps[i] > 0 and \
-		now - prev_key_states_tstamps[i] > long_keypress_duration:
-            key_presses.append((True, i))
-            self.__key_states_tstamps.append(0)
+          # If it was down, register a short key press event
+          if prev_key_states_tstamps[i]:
+            input_events.append((self.SHORT_KEYPRESS, i))
 
-          # The key was down but already "spent": carry on the previous state
-          else:
-            self.__key_states_tstamps.append(prev_key_states_tstamps[i])
+          # Clear the status of the key
+          self.__key_states_tstamps.append(None)
 
-      # The key is up
-      else:
+      # We didn't receive any event in this round
+      if events is None:
+        break
 
-        # If it was down, register a short key press event
-        if prev_key_states_tstamps[i]:
-          key_presses.append((False, i))
-
-        # Clear the status of the key
-        self.__key_states_tstamps.append(None)
-
-    return key_presses
+    return input_events
 
 
 
