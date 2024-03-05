@@ -1,9 +1,19 @@
 # FreeCAD Stream Deck Addon
-## v0.1.4
+### Version 0.1.4
+
+* [Usage](#Usage)
+* [Installation](#Installation)
+* [Settings](#Settings)
+* [Notes](#Notes)
+* [Discussion](#Discussion)
 
 FreeCAD addon to use an [Elgato](https://www.elgato.com) [Stream Deck](https://www.elgato.com/us/en/s/welcome-to-stream-deck) macropad as an input device.
 
 ![Stream Deck](images/stream_deck.png)
+
+
+
+## Usage
 
 The toolbar tools displayed in the FreeCAD window are mirrored in real-time on the Stream Deck keys. When a key is pressed, the corresponding tool is applied as if selected in the main window.
 
@@ -17,9 +27,9 @@ Two keys at the bottom right of the Stream Deck are used to change pages. If the
 
 
 
-### Installation
+## Installation
 
-#### Addon manager
+### Addon manager
 
 In the FreeCAD menu, go to **Tools ▶ Addon manager** and select **Stream Deck Addon**:
 
@@ -29,7 +39,7 @@ Select **Install**, then install the required Python modules:
 
 ![Addon manager installation dependencies](images/addon_manager_install_dependencies.png)
 
-#### Manual installation
+### Manual installation
 
 Copy or clone this git repo directory in your FreeCAD addon directory. Typically:
 
@@ -48,9 +58,7 @@ You also need to install the following Python modules (e.g. with `python -m pip 
 
 *Note: If you use a FreeCAD AppImage in Linux, the addon may not find the streamdeck or pillow package on your system. You can solve the problem by installing it directly into the directory the addon was installed in with `python -m pip install --target=<directory>`.*
 
-
-
-#### Windows-specific
+### Windows-specific
 
 The HIDAPI library must be installed for the streamdeck Python module to work correctly. To install it:
 
@@ -59,7 +67,7 @@ The HIDAPI library must be installed for the streamdeck Python module to work co
 
 
 
-### Settings
+## Settings
 
 In the FreeCAD menu, go to **Tools ▶ Edit Parameters**.  All the settings to control the addon are under `BaseApp ▶ StreamDeckAddon`.
 
@@ -106,9 +114,9 @@ The ones you're really interested in are:
   How bright the Stream Deck's display should be. Percentage from 0% to 100%.
 
 - **Display ▶ ScreenSaver ▶ Enabled**  
-**Display ▶ ScreenSaver ▶ FadeWhenUserInactiveForSeconds**  
-**Display ▶ ScreenSaver ▶ FadeToBrightness**  
-**Display ▶ ScreenSaver ▶ FadeTimeSeconds**  
+  **Display ▶ ScreenSaver ▶ FadeWhenUserInactiveForSeconds**  
+  **Display ▶ ScreenSaver ▶ FadeToBrightness**  
+  **Display ▶ ScreenSaver ▶ FadeTimeSeconds**  
 
   Stream Deck screen saver settings.
 
@@ -116,7 +124,7 @@ All setting changes take effect immediately. You don't need to restart FreeCAD.
 
 
 
-### Notes
+## Notes
 
 - The addon needs exclusive access to the Stream Deck device. It cannot coexist
   with Elgato's Stream Deck software on Windows or with streamdeck-ui on Linux.
@@ -126,3 +134,15 @@ All setting changes take effect immediately. You don't need to restart FreeCAD.
 - Tested with FreeCAD 0.22 on Linux and Windows, with a Stream Deck Mk2, Stream Deck XL and Stream Deck +. It may or may not work with other models.
 
 - This software is still under development. Please bear with me as I make it nicer 🙂
+
+
+
+## Discussion
+
+Feel free to give feedback, suggestions or discuss issues in the [official FreeCAD forum thread](https://forum.freecad.org/viewtopic.php?t=85871).
+
+
+
+## License
+
+GPL-3.0
