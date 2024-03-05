@@ -224,12 +224,13 @@ class StreamDeckPages():
           self.current_page = page
           return
 
-    # If any of the pages have changed, try to find a page in the new pages
-    # that matches it with regard to action names and placements, regardless
-    # of their enabled status, regardless of their icons and regardless of
-    # page navigation keys
+    # Has any of the pages changed?
     if (len(self.previous_pages) != len(self.pages) or \
 	any([self.previous_pages[i] != p for i, p in enumerate(self.pages)])):
+
+      # Try to find a page in the new pages that matches it with regard to
+      # action names and placements, regardless of their enabled status,
+      # regardless of their icons and regardless of page navigation keys
       r = re.compile("^" + ";".join([("{}~({})?(~[^;~]*){{6}}".
 						format(t, n) \
 					if n in ("PAGEPREV", "PAGENEXT") else \
@@ -245,44 +246,44 @@ class StreamDeckPages():
           self.current_page = page
           return
 
-    # If we have a last action pressed, try to switch to the page containing
-    # that action - i.e. same toolbar name and same action name...
-    if last_action_pressed:
-      r = re.compile("(^|;){}~{}~".
-			format(last_action_pressed.toolbar,
-				last_action_pressed.name))
-      for page_no, page in enumerate(self.pages):
-        if r.search(page):
-          self.current_page_no = page_no
-          self.current_page = page
-          return
-
-      # ...and if the name of the last action pressed wasn't found and
-      # it's a subaction of another action, try to switch to the page
-      # containing the key corresponding to the parent action
-      if last_action_pressed.issubactionof is not None:
+      # If we have a last action pressed, try to switch to the page containing
+      # that action - i.e. same toolbar name and same action name...
+      if last_action_pressed:
         r = re.compile("(^|;){}~{}~".
 			format(last_action_pressed.toolbar,
-				last_action_pressed.issubactionof))
+				last_action_pressed.name))
         for page_no, page in enumerate(self.pages):
           if r.search(page):
             self.current_page_no = page_no
             self.current_page = page
             return
 
-    # Try to switch to the first page containing keys marked with the name
-    # of the current toolbar
-    r = re.compile("(^|;){}~".format(self.current_page.split("~", 1)[0].\
-							split("#", 1)[0]))
-    for page_no, page in enumerate(self.pages):
-      if r.search(page):
-        self.current_page_no = page_no
-        self.current_page = page
-        return
+        # ...and if the name of the last action pressed wasn't found and
+        # it's a subaction of another action, try to switch to the page
+        # containing the key corresponding to the parent action
+        if last_action_pressed.issubactionof is not None:
+          r = re.compile("(^|;){}~{}~".
+				format(last_action_pressed.toolbar,
+					last_action_pressed.issubactionof))
+          for page_no, page in enumerate(self.pages):
+            if r.search(page):
+              self.current_page_no = page_no
+              self.current_page = page
+              return
 
-    # Default to the first page as a last resort
-    self.current_page = self.pages[0]
-    self.current_page_no = 0
+      # Try to switch to the first page containing keys marked with the name
+      # of the current toolbar
+      r = re.compile("(^|;){}~".format(self.current_page.split("~", 1)[0].\
+							split("#", 1)[0]))
+      for page_no, page in enumerate(self.pages):
+        if r.search(page):
+          self.current_page_no = page_no
+          self.current_page = page
+          return
+
+      # Default to the first page as a last resort
+      self.current_page = self.pages[0]
+      self.current_page_no = 0
 
 
 
