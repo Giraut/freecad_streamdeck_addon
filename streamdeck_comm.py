@@ -285,9 +285,10 @@ class StreamDeck():
     xr = image.width - 1	# Right horizontal coordinate in the image
     yb = image.height - 1	# Bottom vertical coordinate in the image
 
-    # If we have text, write it on top of the image
+    # Do we have text or brackets to add to the icon?
     if top_text or bottom_text or left_bracket_color or right_bracket_color:
 
+      # If we have text, write it on top of the image
       draw = ImageDraw.Draw(image)
 
       if top_text:
@@ -298,19 +299,31 @@ class StreamDeck():
         draw.text((xm, yb), text = bottom_text,
 			font = self.font, anchor = "mb", fill = "white")
 
+      # If we have brackets, draw them. If the color name is incorrect, default
+      # to dark grey
       if left_bracket_color:
-        draw.line([(self.margins[3] - 2, self.margins[0] + 2),
+        for color in (left_bracket_color, "darkslategrey"):
+          try:
+            draw.line([(self.margins[3] - 2, self.margins[0] + 2),
 			(4, self.margins[0] + 2),
 			(4, yb - self.margins[2] - 2),
 			(self.margins[3] - 2, yb - self.margins[2] - 2)],
-			width = 5, fill = left_bracket_color)
+			width = 5, fill = color)
+            break
+          except:
+            pass
 
       if right_bracket_color:
-        draw.line([(xr - self.margins[1] + 2, self.margins[0] + 2),
+        for color in (right_bracket_color, "darkslategrey"):
+          try:
+            draw.line([(xr - self.margins[1] + 2, self.margins[0] + 2),
 			(xr - 4, self.margins[0] + 2),
 			(xr - 4, yb - self.margins[2] - 2),
 			(xr - self.margins[1] + 2, yb - self.margins[2] - 2)],
-			width = 5, fill = right_bracket_color)
+			width = 5, fill = color)
+            break
+          except:
+            pass
 
     # Upload the image to the key
     self.dev.set_key_image(keyno, PILHelper.to_native_format(self.dev, image))

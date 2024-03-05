@@ -237,9 +237,9 @@ def streamdeck_update():
         print("-" * 79)
         print("Short-press an enabled button to activate the function")
         print("Long-press buttons between {} brackets to expand/collapse them".
-		format(params.bracket_color_expandable_tools))
+		format(params.bracket_color_expandable_tools.lower()))
         print("Buttons between {} brackets are available on all pages".
-		format(params.bracket_color_repeated_toolbars))
+		format(params.bracket_color_repeated_toolbars.lower()))
 
         show_help = False
 
