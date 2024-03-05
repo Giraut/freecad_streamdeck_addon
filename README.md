@@ -43,8 +43,8 @@ System-wide:
 
 You also need to install the following Python modules (e.g. with `python -m pip install`):
 
-- streamdeck
 - pillow
+- streamdeck
 
 *Note: If you use a FreeCAD AppImage in Linux, the addon may not find the streamdeck or pillow package on your system. You can solve the problem by installing it directly into the directory the addon was installed in with `python -m pip install --target=<directory>`.*
 
