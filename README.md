@@ -19,6 +19,18 @@ Two keys at the bottom right of the Stream Deck are used to change pages.
 
 ### Installation
 
+#### Addon manager
+
+In the FreeCAD menu, go to **Tools ▶ Addon manager** and select **Stream Deck Addon**:
+
+![Addon manager](images/addon_manager.png)
+
+Select **Install**, then install the required Python modules:
+
+![Addon manager installation dependencies](images/addon_manager_install_dependencies.png)
+
+#### Manual installation
+
 Copy or clone this git repo directory in your FreeCAD addon directory. Typically:
 
 User:
@@ -32,15 +44,24 @@ System-wide:
 You also need to install the following Python modules (e.g. with `python -m pip install`):
 
 - streamdeck
-- Pillow
+- pillow
 
-*Note: If you use a FreeCAD AppImage, the addon may not find the streamdeck package on your system. You can solve the problem by installing it directly into the directory the addon was installed in with `python -m pip install --target=<directory>`.*
+*Note: If you use a FreeCAD AppImage in Linux, the addon may not find the streamdeck or pillow package on your system. You can solve the problem by installing it directly into the directory the addon was installed in with `python -m pip install --target=<directory>`.*
+
+
+
+#### Windows-specific
+
+The HIDAPI library must be installed for the streamdeck Python module to work correctly. To install it:
+
+  - Download the latest `hidapi-win.zip` file from https://github.com/libusb/hidapi/releases
+  - Copy the `hidapi.dll` file inside the ZIP file into `C:\Windows\System32` as administrator
 
 
 
 ### Settings
 
-In the FreeCAD menu, go to `Tools ▶ Edit Parameters`.  All the settings to control the addon are under `BaseApp ▶ StreamDeckAddon`.
+In the FreeCAD menu, go to **Tools ▶ Edit Parameters**.  All the settings to control the addon are under `BaseApp ▶ StreamDeckAddon`.
 
 ![Parameter Editor](images/parameter_editor.png)
 
