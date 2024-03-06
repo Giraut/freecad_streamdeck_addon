@@ -381,7 +381,6 @@ def streamdeck_update():
         if pages.previous_current_page:
           prev_keystrings = pages.previous_current_page.split(pages.SK)
 
-        print("KS")
         for keyno, ks in enumerate(keystrings):
           if not pages.previous_current_page or ks != prev_keystrings[keyno]:
 
