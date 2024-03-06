@@ -385,7 +385,6 @@ def streamdeck_update():
         for keyno, ks in enumerate(keystrings):
           if not pages.previous_current_page or ks != prev_keystrings[keyno]:
 
-            print(ks)
             _, n, _, _, tt, bt, lbc, rbc = ks.split(pages.SV)
             img = n if n in ("", "PAGEPREV", "PAGENEXT") else \
 		tbactions.actions[n].icon_as_pil_image()
