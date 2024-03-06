@@ -145,7 +145,7 @@ class ToolbarActions():
           for action in button.actions():
 
             # Should we keep or ignore this action?
-            n = action.data()
+            n = action.objectName()
             if n and not action.isSeparator() and action.isIconVisibleInMenu():
 
               # Add the action to the list of known actions if it isn't
