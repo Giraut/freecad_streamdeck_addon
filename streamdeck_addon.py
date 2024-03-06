@@ -5,6 +5,7 @@
 #
 
 
+import re
 import os
 import sys
 from time import time
@@ -437,15 +438,25 @@ def start(FreeCAD):
   global timer_reschedule_every_ms
   global next_actions_update_tstamp
 
-  # Create the parameters
-  params = UserParameters(FreeCAD)
-
   # Determine the platform
   is_win = sys.platform[0:3] == "win"
 
   # Determine the installation directory
   install_dir = os.path.dirname(__file__)
   as_installed = lambda f: os.path.abspath(os.path.join(install_dir, f))
+
+  # If the package.xml file is around, try to extract the version number from it
+  # and display it
+  try:
+    with open(as_installed("package.xml"), "r") as f:
+      print("*** Stream Deck Addon version {} ***".
+		format(re.search("<version>\s*(\S+)\s*</version>",
+			f.read())[1]))
+  except Exception as e:
+    pass
+
+  # Create the parameters
+  params = UserParameters(FreeCAD)
 
   # Get the name of the appropriate font to write in the Stream Deck keys
   # depending on the platform
