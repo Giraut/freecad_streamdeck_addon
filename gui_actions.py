@@ -4,6 +4,7 @@
 ## Modules
 #
 
+import re
 import io
 from PIL import Image
 
@@ -144,8 +145,16 @@ class ToolbarActions():
           # Get the list of actions associated with this button
           for action in button.actions():
 
-            # Should we keep or ignore this action?
+            # Get the object name: primarily from .objectName(), and if that's
+            # empty, fall back on .data() unless .data() is None or "" or a
+            # number, so we don't miss any action name we care about
             n = action.objectName()
+            if not n:
+              n = action.data()
+              if not n or re.match("^[0-9]+$", n):
+                n = None
+
+            # Should we keep or ignore this action?
             if n and not action.isSeparator() and action.isIconVisibleInMenu():
 
               # Add the action to the list of known actions if it isn't
