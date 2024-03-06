@@ -264,7 +264,7 @@ def streamdeck_update():
 
     # Process Stream Deck input events if a current page is displayed
     if pages.current_page:
-      keystrings = pages.current_page.split(";")
+      keystrings = pages.current_page.split(pages.SK)
 
       for event_type, val in input_events:
 
@@ -272,7 +272,7 @@ def streamdeck_update():
         if event_type in (streamdeck.SHORT_KEYPRESS, streamdeck.LONG_KEYPRESS):
 
           # Get the action name
-          n = keystrings[val].split("~")[1]
+          n = keystrings[val].split(pages.SV)[1]
 
           # Is the key occupied?
           if n:
@@ -377,14 +377,16 @@ def streamdeck_update():
 
       # Update the keys to display the current page as needed
       else:
-        keystrings = pages.current_page.split(";")
+        keystrings = pages.current_page.split(pages.SK)
         if pages.previous_current_page:
-          prev_keystrings = pages.previous_current_page.split(";")
+          prev_keystrings = pages.previous_current_page.split(pages.SK)
 
+        print("KS")
         for keyno, ks in enumerate(keystrings):
           if not pages.previous_current_page or ks != prev_keystrings[keyno]:
 
-            _, n, _, _, tt, bt, lbc, rbc = ks.split("~")
+            print(ks)
+            _, n, _, _, tt, bt, lbc, rbc = ks.split(pages.SV)
             img = n if n in ("", "PAGEPREV", "PAGENEXT") else \
 		tbactions.actions[n].icon_as_pil_image()
 

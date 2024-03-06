@@ -13,6 +13,12 @@ import re
 
 class StreamDeckPages():
 
+  # Key and variable separators for page strings
+  # Chosen to avoid clashing with any printable character used in the GUI
+  # widgets
+  SK = "\x1d"
+  SV = "\x1e"
+
   def __init__(self, nb_streamdeck_keys, with_nav_keys):
     """__init__ method
     """
@@ -45,12 +51,11 @@ class StreamDeckPages():
     # Compose the new pages to display on the Stream Deck: the pages are
     # described in a multiline string with each line in the following format:
     #
-    # <key0>;<key1>;...;<keyN>
+    # <key0>SK<key1>SK...SK<keyN>
     #
     # and each key is composed of:
-    # <toolbarmarker>~[action]~[0|1]~[iconid]~[toptext]~[bottomtext]~
-    #    [leftbracketcolor]~[rightbracketcolor]
-    #
+    # <toolbarmarker>SV[action]SV[0|1]SV[iconid]SV[toptext]SV[bottomtext]SV
+    #    [leftbracketcolor]SV[rightbracketcolor]
 
     # Create a pattern of one or more pages (hopefully just one) that contain
     # the keys for the actions of the toolbars that should be repeated on
@@ -60,7 +65,7 @@ class StreamDeckPages():
     for t in repeated_toolbars:
       if t in tbactions.toolbars:
         last_action_i = len(tbactions.toolbar_actions[t]) - 1
-        keys.extend(["[toolbar]~{}~{}~{}~{}~{}~{}~{}".
+        keys.extend(["[toolbar]{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}".
 		format(n, 1 if tbactions.actions[n].enabled else 0,
 			tbactions.actions[n].iconid,
 			tbactions.actions[n].title, t,
@@ -68,30 +73,32 @@ class StreamDeckPages():
 			exbc if n in tbactions.expanded_actions else "",
 			ptbc if i == last_action_i else \
 			exbc if not tbactions.expanded_actions.get(n, True) or \
-				tbactions.actions[n].islastsubaction else "")
+				tbactions.actions[n].islastsubaction else "",
+			sv = self.SV)
 		for i, n in enumerate(tbactions.toolbar_actions[t])])
     nbkeys = len(keys)
 
     reserve_nb_last_keys = 2 if self.with_nav_keys else 0
-    last_2_page_keys = ";[pageprev];[pagenext]" if self.with_nav_keys else ""
+    last_2_page_keys = "{sk}[pageprev]{sk}[pagenext]".format(sk = self.SK) \
+				if self.with_nav_keys else ""
 
     empty_new_pages = []
 
     # The last page of the new empty pages should have however many reserved
     # slots and at lease 1 empty slot for a key left
     while nbkeys > self.nb_streamdeck_keys - reserve_nb_last_keys - 1:
-      empty_new_pages.append(";".join(keys[:self.nb_streamdeck_keys - \
+      empty_new_pages.append(self.SK.join(keys[:self.nb_streamdeck_keys - \
 						reserve_nb_last_keys]) + \
 				last_2_page_keys)
       keys = keys[self.nb_streamdeck_keys - reserve_nb_last_keys:]
       nbkeys -= self.nb_streamdeck_keys - reserve_nb_last_keys
 
-    empty_new_pages.append(";".join(keys) + \
-				(";" if keys and \
+    empty_new_pages.append(self.SK.join(keys) + \
+				(self.SK if keys and \
 					(self.nb_streamdeck_keys - nbkeys - \
 						reserve_nb_last_keys) \
 					else "") + \
-				";".join(["[key]" for _ in \
+				self.SK.join(["[key]" for _ in \
 					range(self.nb_streamdeck_keys - \
 						nbkeys - \
 						reserve_nb_last_keys)]) \
@@ -111,13 +118,14 @@ class StreamDeckPages():
       if t not in repeated_toolbars:
 
         # Get the list of key strings for this toolbar
-        keys = ["{}~{}~{}~{}~{}~{}~{}~{}".
+        keys = ["{}{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}".
 		format(t, n, 1 if tbactions.actions[n].enabled else 0,
 			tbactions.actions[n].iconid,
 			tbactions.actions[n].title, t,
 			exbc if n in tbactions.expanded_actions else "",
 			exbc if not tbactions.expanded_actions.get(n, True) or \
-				tbactions.actions[n].islastsubaction else "")
+				tbactions.actions[n].islastsubaction else "",
+			sv = self.SV)
 		for n in tbactions.toolbar_actions[t]]
 
         indiv_toolbar_page_maker_ctr = 0
@@ -132,9 +140,11 @@ class StreamDeckPages():
             # placeholder if any
             if self.with_nav_keys and self.pages:
               self.pages[-1] = self.pages[-1].replace("[pagenext]",
-							"{}~PAGENEXT~~~~{}~~{}".
+							"{}{sv}PAGENEXT{sv}{sv}"
+							"{sv}{sv}{}{sv}{sv}{}".
 							format(page_marker(),
-								t, nkbc))
+								t, nkbc,
+								sv = self.SV))
 
             # Add new pages. Mark all the new pages' keys with a unique page
             # marker.
@@ -151,25 +161,32 @@ class StreamDeckPages():
                 # placeholder in all but the last new page
                 if i < last_empty_new_page_i:
                   new_page = new_page.replace("[pagenext]",
-						"{}~PAGENEXT~~~~{}~~{}".
-						format(page_marker(), t, nkbc))
+						"{}{sv}PAGENEXT{sv}{sv}{sv}{sv}"
+						"{}{sv}{sv}{}".
+						format(page_marker(), t, nkbc,
+							sv = self.SV))
 
                 # Replace the first [pageprev] placeholder
                 if i == 0:
                   new_page = new_page.replace("[pageprev]",
-						"{}~PAGEPREV~~~~{}~{}~".
+						"{}{sv}PAGEPREV{sv}{sv}{sv}{sv}"
+						"{}{sv}{}{sv}".
 						format(page_marker(),
 							prev_page_toolbar,
-							nkbc) \
+							nkbc, sv = self.SV) \
 						if prev_page_toolbar else \
-						"{}~~~~~~{}~".
-						format(page_marker(), nkbc), 1)
+						"{}{sv}{sv}{sv}{sv}"
+						"{sv}{sv}{}{sv}".
+						format(page_marker(), nkbc,
+							sv = self.SV), 1)
 
                 # Replace the remaining [pageprev] placeholders if any
                 else:
                   new_page = new_page.replace("[pageprev]",
-						"{}~PAGEPREV~~~~{}~{}~".
-						format(page_marker(), t, nkbc))
+						"{}{sv}PAGEPREV{sv}{sv}{sv}{sv}"
+						"{}{sv}{}{sv}".
+						format(page_marker(), t, nkbc,
+							sv = self.SV))
 
               # Add the new page to the pages
               self.pages.append(new_page)
@@ -180,13 +197,17 @@ class StreamDeckPages():
           self.pages[-1] = self.pages[-1].replace("[key]", key, 1)
 
         # Add blank keys to complete the last page for this toolbar
-        self.pages[-1] = self.pages[-1].replace("[key]", "{}~~~~~~~".
-						format(page_marker()))
+        self.pages[-1] = self.pages[-1].replace("[key]", "{}{sv}{sv}{sv}{sv}"
+						"{sv}{sv}{sv}".
+						format(page_marker(),
+							sv = self.SV))
 
     # If we have navigation keys, replace the last [pagenext] placeholder if any
     if self.with_nav_keys and self.pages:
-      self.pages[-1] = self.pages[-1].replace("[pagenext]", "{}~~~~~~~{}".
-						format(page_marker(), nkbc))
+      self.pages[-1] = self.pages[-1].replace("[pagenext]", "{}{sv}{sv}{sv}{sv}"
+						"{sv}{sv}{sv}{}".
+						format(page_marker(), nkbc,
+							sv = self.SV))
 
 
 
@@ -217,7 +238,8 @@ class StreamDeckPages():
     # If we have a new toolbar, switch to the first page containing keys
     # marked with the name of the new toolbar
     if new_toolbar:
-      r = re.compile("(^|;){}~".format(new_toolbar))
+      r = re.compile("(^|{sk}){}{sv}".format(new_toolbar,
+						sv = self.SV, sk = self.SK))
       for page_no, page in enumerate(self.pages):
         if r.search(page):
           self.current_page_no = page_no
@@ -231,15 +253,19 @@ class StreamDeckPages():
       # Try to find a page in the new pages that matches it with regard to
       # action names and placements, regardless of their enabled status,
       # regardless of their icons and regardless of page navigation keys
-      r = re.compile("^" + ";".join([("{}~({})?(~[^;~]*){{6}}".
-						format(t, n) \
+      r = re.compile("^" + self.SK.join([("{}{sv}({})?({sv}[^{sk}{sv}]*){{6}}".
+						format(t, n, sv = self.vS,
+							sk = self.SK) \
 					if n in ("PAGEPREV", "PAGENEXT") else \
-					"{}~{}~.?~[^;~]*?~{}~{}~{}~{}".
-						format(t, n, tt, bt, lbc, rbc))\
+						"{}{sv}{}{sv}.?{sv}[^{sk}{sv}]"
+						"*?{sv}{}{sv}{}{sv}{}{sv}{}".
+						format(t, n, tt, bt, lbc, rbc,
+							sv = self.SV,
+							sk = self.SK))\
 					for t, n, _, _, tt, bt, lbc, rbc in \
-						[ks.split("~") \
+						[ks.split(self.SV) \
 					for ks in self.current_page.\
-							split(";")]]) + "$")
+							split(self.SK)]]) + "$")
       for page_no, page in enumerate(self.pages):
         if r.match(page):
           self.current_page_no = page_no
@@ -249,9 +275,10 @@ class StreamDeckPages():
       # If we have a last action pressed, try to switch to the page containing
       # that action - i.e. same toolbar name and same action name...
       if last_action_pressed:
-        r = re.compile("(^|;){}~{}~".
+        r = re.compile("(^|{sk}){}{sv}{}{sv}".
 			format(last_action_pressed.toolbar,
-				last_action_pressed.name))
+				last_action_pressed.name,
+				sv = self.SV, sk = self.SK))
         for page_no, page in enumerate(self.pages):
           if r.search(page):
             self.current_page_no = page_no
@@ -262,9 +289,10 @@ class StreamDeckPages():
         # it's a subaction of another action, try to switch to the page
         # containing the key corresponding to the parent action
         if last_action_pressed.issubactionof is not None:
-          r = re.compile("(^|;){}~{}~".
+          r = re.compile("(^|{sk}){}{sv}{}{sv}".
 				format(last_action_pressed.toolbar,
-					last_action_pressed.issubactionof))
+					last_action_pressed.issubactionof,
+					sv = self.SV, sk = self.SK))
           for page_no, page in enumerate(self.pages):
             if r.search(page):
               self.current_page_no = page_no
@@ -273,8 +301,10 @@ class StreamDeckPages():
 
       # Try to switch to the first page containing keys marked with the name
       # of the current toolbar
-      r = re.compile("(^|;){}~".format(self.current_page.split("~", 1)[0].\
-							split("#", 1)[0]))
+      r = re.compile("(^|{sk}){}{sv}".
+			format(self.current_page.split(self.SV, 1)[0].\
+							split("#", 1)[0],
+				sv = self.SV, sk = self.SK))
       for page_no, page in enumerate(self.pages):
         if r.search(page):
           self.current_page_no = page_no
