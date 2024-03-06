@@ -254,7 +254,7 @@ class StreamDeckPages():
       # action names and placements, regardless of their enabled status,
       # regardless of their icons and regardless of page navigation keys
       r = re.compile("^" + self.SK.join([("{}{sv}({})?({sv}[^{sk}{sv}]*){{6}}".
-						format(t, n, sv = self.vS,
+						format(t, n, sv = self.SV,
 							sk = self.SK) \
 					if n in ("PAGEPREV", "PAGENEXT") else \
 						"{}{sv}{}{sv}.?{sv}[^{sk}{sv}]"
