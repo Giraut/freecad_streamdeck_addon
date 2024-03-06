@@ -1,5 +1,5 @@
 # FreeCAD Stream Deck Addon
-### Version 0.1.6
+### Version 0.1.7
 
 * [Usage](#Usage)
 * [Installation](#Installation)
