@@ -368,7 +368,8 @@ class StreamDeck():
             pass
 
     # Upload the image to the key
-    self.dev.set_key_image(keyno, PILHelper.to_native_format(self.dev, image))
+    self.dev.set_key_image(keyno, PILHelper.to_native_key_format(self.dev,
+									image))
 
 
 
