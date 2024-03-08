@@ -94,7 +94,7 @@ The ones you're really interested in are:
 
 - **StartStopCommands ▶ ExecuteShellCommandWhenStopping**
 
-  Shell script to run when stopping. Useful to restart another Stream Deck application such as streamdeck-ui after the Stream Deck device has been releases by this addon. E.g. `streamdeck &`. Leave blank to disable.
+  Shell script to run when stopping. Useful to restart another Stream Deck application such as streamdeck-ui after the Stream Deck device has been releases by this addon. E.g. `streamdeck --no-ui &`. Leave blank to disable.
 
 - **ToolbarLists ▶ ToolbarsExcluded_CommaSeparated**
 
