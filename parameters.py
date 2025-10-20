@@ -131,6 +131,7 @@ class UserParameters():
     # Add the non user-editable parameters
     self.streamdeck_key_text_font_filename_linux = "OpenSans-Regular.ttf"
     self.streamdeck_key_text_font_filename_windows = "arial.ttf"
+    self.streamdeck_key_text_font_filename_macos = "Apple Symbols.ttf"
     self.streamdeck_key_text_font_size = 14
     self.prev_streamdeck_key_icon = "prev.png"
     self.next_streamdeck_key_icon = "next.png"

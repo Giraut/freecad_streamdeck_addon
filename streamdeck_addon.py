@@ -438,9 +438,6 @@ def start(FreeCAD):
   global timer_reschedule_every_ms
   global next_actions_update_tstamp
 
-  # Determine the platform
-  is_win = sys.platform[0:3] == "win"
-
   # Determine the installation directory
   install_dir = os.path.dirname(__file__)
   as_installed = lambda f: os.path.abspath(os.path.join(install_dir, f))
@@ -460,9 +457,14 @@ def start(FreeCAD):
 
   # Get the name of the appropriate font to write in the Stream Deck keys
   # depending on the platform
-  font_filename = params.streamdeck_key_text_font_filename_windows \
-				if is_win else \
-			params.streamdeck_key_text_font_filename_linux
+  if sys.platform.startswith("win"):
+    font_filename = params.streamdeck_key_text_font_filename_windows
+  elif sys.platform.startswith("linux"):
+    font_filename = params.streamdeck_key_text_font_filename_linux
+  elif sys.platform.startswith("darwin"):
+    font_filename = params.streamdeck_key_text_font_filename_macos
+  else:
+    print("unsupported platform")
 
   # Initialize the streamdeck object
   streamdeck = StreamDeck(font_filename, params.streamdeck_key_text_font_size,

@@ -47,6 +47,7 @@ Copy or clone this git repo directory in your FreeCAD addon directory. Typically
 User:
   - Linux:   `~/.local/share/FreeCAD/Mod/`
   - Windows: `%APPDATA%\FreeCAD\Mod\`
+  - macOS:   `~/Library/Application Support/FreeCAD/Mod`
 
 System-wide:
   - Linux:   `/usr/share/freecad/Mod/`
@@ -59,14 +60,16 @@ You also need to install the following Python modules (e.g. with `python -m pip 
 
 *Note: If you use a FreeCAD AppImage in Linux, the addon may not find the streamdeck or pillow package on your system. You can solve the problem by installing it directly into the directory the addon was installed in with `python -m pip install --target=<directory>`.*
 
-### Windows-specific
+### Windows specific
 
 The HIDAPI library must be installed for the streamdeck Python module to work correctly. To install it:
 
   - Download the latest `hidapi-win.zip` file from https://github.com/libusb/hidapi/releases
   - Copy the `hidapi.dll` file inside the ZIP file into `C:\Windows\System32` as administrator
 
+### macOS specific
 
+  - install hidapi `brew install hidapi`
 
 ## Settings
 
@@ -114,10 +117,10 @@ The ones you're really interested in are:
 
   How bright the Stream Deck's display should be. Percentage from 0% to 100%.
 
-- **Display ▶ ScreenSaver ▶ Enabled**  
-  **Display ▶ ScreenSaver ▶ FadeWhenUserInactiveForSeconds**  
-  **Display ▶ ScreenSaver ▶ FadeToBrightness**  
-  **Display ▶ ScreenSaver ▶ FadeTimeSeconds**  
+- **Display ▶ ScreenSaver ▶ Enabled**
+  **Display ▶ ScreenSaver ▶ FadeWhenUserInactiveForSeconds**
+  **Display ▶ ScreenSaver ▶ FadeToBrightness**
+  **Display ▶ ScreenSaver ▶ FadeTimeSeconds**
 
   Stream Deck screen saver settings.
 
