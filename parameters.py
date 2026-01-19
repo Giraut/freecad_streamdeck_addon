@@ -24,7 +24,7 @@ class _ParamObserver:
 
 
   def slotParamChanged(self, group, pname, ptype, value):
-    """Callbacl for when any elements in the Parameter Editor groups
+    """Callback for when any elements in the Parameter Editor groups
     is changed
     """
 

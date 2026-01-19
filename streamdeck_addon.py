@@ -495,5 +495,5 @@ def start(FreeCAD):
   # Connect the main window's destroyed() signal to the shutdown callback
   main_window.destroyed.connect(shutdown)
 
-  # Schedule the timer for the first itme
+  # Schedule the timer for the first time
   timer.start()
