@@ -33,6 +33,8 @@ class StreamDeckPages():
     self.current_page = None
     self.current_page_no = None
 
+    self.showing_index = False
+
 
 
   def rebuild_pages(self, tbactions, repeated_toolbars,
@@ -332,5 +334,57 @@ class StreamDeckPages():
     self.current_page_no = new_page_no
     self.previous_current_page = self.current_page
     self.current_page = self.pages[self.current_page_no]
+
+    return True
+
+
+
+  def enter_index(self):
+    """Build a page listing all the currently known pages as selectable keys,
+    labelled with their page number and the name of their primary toolbar, then
+    switch the current page to it. Has no page navigation keys of its own
+    Calling this again while already showing the index rebuilds it, e.g. to
+    reflect a change in the underlying pages
+    Do nothing if there are no known pages
+    If there are more known pages than Stream Deck keys, only the first ones
+    that fit are listed
+    Return True if the index page was built and displayed, False otherwise
+    """
+
+    if not self.pages:
+      return False
+
+    keys = [self.SV.join([str(page_no), "PAGESELECT", "", "",
+				str(page_no + 1),
+				page.split(self.SV, 1)[0].split("#", 1)[0],
+				"", ""]) \
+			for page_no, page in \
+				list(enumerate(self.pages))[:self.nb_streamdeck_keys]]
+
+    # Pad with blank keys up to the full key count, so no key is left showing
+    # whatever was previously displayed
+    keys.extend([self.SV.join([""] * 8)] * (self.nb_streamdeck_keys - len(keys)))
+
+    self.previous_current_page = self.current_page
+    self.current_page = self.SK.join(keys)
+    self.showing_index = True
+
+    return True
+
+
+
+  def select_page(self, page_no):
+    """Switch to the page numbered page_no, leaving the page index if it was
+    displayed
+    Return True if the page was changed, False if page_no is out of range
+    """
+
+    if page_no < 0 or page_no >= len(self.pages):
+      return False
+
+    self.previous_current_page = self.current_page
+    self.current_page_no = page_no
+    self.current_page = self.pages[page_no]
+    self.showing_index = False
 
     return True

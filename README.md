@@ -26,6 +26,8 @@ Certain toolbars may be displayed on all the pages. Those tools are shown betwee
 
 Two keys at the bottom right of the Stream Deck are used to change pages. If the Stream Deck has dials, the dials are used to change pages instead.
 
+Pressing both page-change keys at the same time shows an index of all the pages instead, one key per page, labelled with the page number and its primary toolbar. Press a key on the index to jump straight to that page.
+
 
 
 ## Installation

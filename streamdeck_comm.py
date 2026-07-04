@@ -42,8 +42,10 @@ class StreamDeck():
     self.__key_states_tstamps = None
     self.__brightness = None
     self.__fade_start_tstamp = None
+    self.__key_image_cache = {}
 
     # Load the TrueType font
+    self.ttf_file = ttf_file
     self.font = ImageFont.truetype(ttf_file, ttf_size)
 
     # Preload icons for the Stream Deck keys
@@ -59,6 +61,38 @@ class StreamDeck():
 
 
 
+  def initials_icon(self, name):
+    """Build a placeholder icon showing the initials of each word of name (e.g.
+    "B-Spline Tools" -> "BT"), for use as an icon representing a named group
+    such as a toolbar that has no icon of its own
+    Return the blank icon if name is empty or blank
+    """
+
+    initials = "".join(w[0] for w in name.split()).upper() if name else ""
+
+    if not initials:
+      return self.blank_image
+
+    icon = self.blank_image.copy()
+    icon = icon.convert("RGB")
+
+    # Find the largest font size that fits the initials within the icon, down
+    # to a minimum size below which we just let the text overflow
+    font_size = icon.height
+    while font_size > 8:
+      font = ImageFont.truetype(self.ttf_file, font_size)
+      left, top, right, bottom = font.getbbox(initials)
+      if right - left <= icon.width * 0.85 and bottom - top <= icon.height * 0.7:
+        break
+      font_size -= 2
+
+    draw = ImageDraw.Draw(icon)
+    draw.text((icon.width / 2, icon.height / 2), text = initials, font = font,
+			anchor = "mm", fill = "yellow")
+
+    return icon
+
+
 
   def open(self, device_type, serial_number):
     """Try to open and reset the Stream Deck device with the specified device
@@ -71,6 +105,7 @@ class StreamDeck():
 
     self.dev = None
     self.__key_states_tstamps = None
+    self.__key_image_cache = {}
 
     dev_sns = None
     info = []
@@ -180,6 +215,7 @@ class StreamDeck():
       self.__key_states_tstamps = None
       self.__brightness = None
       self.__fade_start_tstamp = None
+      self.__key_image_cache = {}
 
 
   def is_open(self):
@@ -292,84 +328,110 @@ class StreamDeck():
 
 
 
-  def set_key(self, keyno, image,
+  def keys_down(self):
+    """Return the set of key numbers currently held down, based on the state
+    determined by the last call to get_input_events()
+    """
+
+    return {i for i, ts in enumerate(self.__key_states_tstamps or []) \
+			if ts is not None}
+
+
+
+  def set_key(self, keyno, cache_key, image_provider,
 		top_text = None, bottom_text = None,
 		left_bracket_color = None, right_bracket_color = None):
     """Upload an image to a Stream Deck key number with optional text at the top
     and at the bottom, and optional colored brackets left and right of the
     image
-    If image is None or "", load the blank icon
-    If image is "PAGEPREV", load the previous icon
-    If image is "PAGENEXT", load the next icon
-    If image is a string, treat it as a filename load this image file
-    In case of error loading the image file and/or scaling it, load and scale a
+    cache_key identifies the icon returned by image_provider (e.g. an action's
+    icon cache key and enabled state, or "", "PAGEPREV", "PAGENEXT"): the fully
+    rendered key image (icon scaled plus any text and brackets) is cached and
+    reused for as long as cache_key and the text/bracket arguments are
+    unchanged, so image_provider is only called - and the icon only scaled,
+    drawn on and converted - on a cache miss
+    image_provider is a callable taking no argument, returning either None or
+    "" for the blank icon, "PAGEPREV"/"PAGENEXT" for the previous/next icon, or
+    a PIL image
+    In case of error loading the image and/or scaling it, load and scale a
     "broken image" icon instead
     """
 
-    if not image:
-      image = self.blank_image
+    full_cache_key = (cache_key, top_text, bottom_text,
+			left_bracket_color, right_bracket_color)
+    native_image = self.__key_image_cache.get(full_cache_key)
 
-    elif image == "PAGEPREV":
-      image = self.prev_image
+    # Do we need to render this key image?
+    if native_image is None:
 
-    elif image == "PAGENEXT":
-      image = self.next_image
+      image = image_provider()
 
-    try:
-      image = PILHelper.create_scaled_image(self.dev, image,
+      if not image:
+        image = self.blank_image
+
+      elif image == "PAGEPREV":
+        image = self.prev_image
+
+      elif image == "PAGENEXT":
+        image = self.next_image
+
+      try:
+        image = PILHelper.create_scaled_image(self.dev, image,
 						margins = self.margins)
 
-    except:
-      image = PILHelper.create_scaled_image(self.dev, broken_image,
+      except:
+        image = PILHelper.create_scaled_image(self.dev, self.broken_image,
 						margins = self.margins)
 
-    xm = image.width / 2	# Middle horizontal coordinate in the image
-    xr = image.width - 1	# Right horizontal coordinate in the image
-    yb = image.height - 1	# Bottom vertical coordinate in the image
+      xm = image.width / 2	# Middle horizontal coordinate in the image
+      xr = image.width - 1	# Right horizontal coordinate in the image
+      yb = image.height - 1	# Bottom vertical coordinate in the image
 
-    # Do we have text or brackets to add to the icon?
-    if top_text or bottom_text or left_bracket_color or right_bracket_color:
+      # Do we have text or brackets to add to the icon?
+      if top_text or bottom_text or left_bracket_color or right_bracket_color:
 
-      # If we have text, write it on top of the image
-      draw = ImageDraw.Draw(image)
+        # If we have text, write it on top of the image
+        draw = ImageDraw.Draw(image)
 
-      if top_text:
-        draw.text((xm, 0), text = top_text,
+        if top_text:
+          draw.text((xm, 0), text = top_text,
 			font = self.font, anchor = "mt", fill = "white")
 
-      if bottom_text:
-        draw.text((xm, yb), text = bottom_text,
+        if bottom_text:
+          draw.text((xm, yb), text = bottom_text,
 			font = self.font, anchor = "mb", fill = "white")
 
-      # If we have brackets, draw them. If the color name is incorrect, default
-      # to dark grey
-      if left_bracket_color:
-        for color in (left_bracket_color, "darkslategrey"):
-          try:
-            draw.line([(self.margins[3] - 2, self.margins[0] + 2),
+        # If we have brackets, draw them. If the color name is incorrect,
+        # default to dark grey
+        if left_bracket_color:
+          for color in (left_bracket_color, "darkslategrey"):
+            try:
+              draw.line([(self.margins[3] - 2, self.margins[0] + 2),
 			(4, self.margins[0] + 2),
 			(4, yb - self.margins[2] - 2),
 			(self.margins[3] - 2, yb - self.margins[2] - 2)],
 			width = 5, fill = color)
-            break
-          except:
-            pass
+              break
+            except:
+              pass
 
-      if right_bracket_color:
-        for color in (right_bracket_color, "darkslategrey"):
-          try:
-            draw.line([(xr - self.margins[1] + 2, self.margins[0] + 2),
+        if right_bracket_color:
+          for color in (right_bracket_color, "darkslategrey"):
+            try:
+              draw.line([(xr - self.margins[1] + 2, self.margins[0] + 2),
 			(xr - 4, self.margins[0] + 2),
 			(xr - 4, yb - self.margins[2] - 2),
 			(xr - self.margins[1] + 2, yb - self.margins[2] - 2)],
 			width = 5, fill = color)
-            break
-          except:
-            pass
+              break
+            except:
+              pass
+
+      native_image = PILHelper.to_native_key_format(self.dev, image)
+      self.__key_image_cache[full_cache_key] = native_image
 
     # Upload the image to the key
-    self.dev.set_key_image(keyno, PILHelper.to_native_key_format(self.dev,
-									image))
+    self.dev.set_key_image(keyno, native_image)
 
 
 
