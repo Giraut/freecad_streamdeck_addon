@@ -52,6 +52,15 @@ class UserParameters():
 	  "addon_enabled":
 	    ("Enabled", "Boolean", True)},
 
+	__top_level_group + "/Device/Display": {
+
+	  "layout":
+	    ("Layout_FoldersOrPages", "String", "Folders"),
+
+	  "workbench_switcher":
+	    ("WorkbenchSwitcher", "Boolean", True)},
+
+	# Brackets: pages layout only
 	__top_level_group + "/Device/Display/BracketColors": {
 
 	  "bracket_color_repeated_toolbars":
@@ -62,6 +71,30 @@ class UserParameters():
 
 	  "bracket_color_expandable_tools":
 	    ("ExpandableTools", "String", "Red")},
+
+	# Corner marks: folders layout only
+	__top_level_group + "/Device/Display/MarkColors": {
+
+	  "mark_color_menu_tools":
+	    ("LongPressMenuTriangle", "String", "WhiteSmoke"),
+
+	  "mark_color_nested_folders":
+	    ("NestedFolderCorner", "String", "Goldenrod")},
+
+	# Key background color of each level: folders layout only
+	__top_level_group + "/Device/Display/LevelColors": {
+
+	  "background_workbench_list":
+	    ("WorkbenchList", "String", "#000000"),
+
+	  "background_workbench_page":
+	    ("WorkbenchPage", "String", "#2e3436"),
+
+	  "background_toolbars":
+	    ("ToolbarPages", "String", "#14305a"),
+
+	  "background_menus":
+	    ("MenuPages", "String", "#3d3000")},
 
 	__top_level_group + "/Device/Display/Brightness": {
 
@@ -131,9 +164,12 @@ class UserParameters():
     # Add the non user-editable parameters
     self.streamdeck_key_text_font_filename_linux = "OpenSans-Regular.ttf"
     self.streamdeck_key_text_font_filename_windows = "arial.ttf"
+    self.streamdeck_key_text_font_filename_macos = "Arial.ttf"
     self.streamdeck_key_text_font_size = 14
     self.prev_streamdeck_key_icon = "prev.png"
     self.next_streamdeck_key_icon = "next.png"
+    self.back_streamdeck_key_icon = "back.png"
+    self.workbench_streamdeck_key_icon = "workbench.png"
     self.blank_streamdeck_key_icon = "blank.png"
     self.broken_streamdeck_key_icon = "broken.png"
     self.check_streamdeck_every = 0.1 #s
@@ -247,6 +283,10 @@ class UserParameters():
     # at it
     self.excluded_toolbars = re.split("[,;: \t]", self.excluded_toolbars)
     self.repeated_toolbars = re.split("[,;: \t]", self.repeated_toolbars)
+
+    # Normalize the layout name: anything but "pages" means the folder layout
+    self.layout = "Pages" if self.layout.strip().lower() == "pages" \
+			else "Folders"
 
     # Indicate that the parameters have been synchronized
     return True

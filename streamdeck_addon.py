@@ -13,10 +13,12 @@ from time import time
 import FreeCADGui as Gui
 from PySide import QtCore
 
+import platform_support
 from parameters import UserParameters
 from streamdeck_comm import StreamDeck
-from gui_actions import ToolbarActions
+from gui_actions import ToolbarActions, WORKBENCH_ACTION_PREFIX
 from streamdeck_pages import StreamDeckPages
+from streamdeck_folders import StreamDeckFolders
 
 
 
@@ -61,12 +63,12 @@ class UserActivity():
       return True
 
     if self.cursor_pos is None:
-      self.cursor_pos = main_window.cursor().pos()
+      self.cursor_pos = self.main_window.cursor().pos()
       self.last_activity_tstamp = now
       return True
 
     prev_main_window_is_active = self.main_window_is_active
-    self.main_window_is_active = main_window.isActiveWindow()
+    self.main_window_is_active = self.main_window.isActiveWindow()
 
     prev_cursor_pos = self.cursor_pos
 
@@ -112,6 +114,196 @@ def action_changed():
 
 
 
+def make_pages():
+  """Create the object that lays out the toolbars and actions on the Stream
+  Deck pages, according to the layout chosen in the parameters
+  """
+
+  global params
+  global streamdeck
+
+  if params.layout == "Pages":
+    return StreamDeckPages(streamdeck.nbkeys, streamdeck.nbdials == 0)
+
+  return StreamDeckFolders(streamdeck.nbkeys, streamdeck.nbdials == 0)
+
+
+
+def key_image(n, enabled):
+  """Return the image to display on a key given the command and enabled fields
+  of its key string: None for a blank key, the name of a predefined image for a
+  navigation key, or the icon of an action as a PIL image
+  """
+
+  global tbactions
+
+  if not n:
+    return None
+
+  # Keys of the page under a menu: the image of the original key, faded if
+  # the key is shown disabled - the tool the menu belongs to isn't
+  if n.startswith(StreamDeckFolders.CLOSE_PREFIX):
+    image = key_image(n[len(StreamDeckFolders.CLOSE_PREFIX):], "1")
+    if enabled != "0" or image is None:
+      return image
+    if isinstance(image, str):
+      return image if image.endswith(StreamDeck.IMAGE_OFF_SUFFIX) else \
+		image + StreamDeck.IMAGE_OFF_SUFFIX
+    return StreamDeck.dimmed_image(image)
+
+  if n in (StreamDeckFolders.PAGEPREV, StreamDeckFolders.PAGENEXT,
+		StreamDeckFolders.PAGEBACK):
+    return n + (StreamDeck.IMAGE_OFF_SUFFIX if enabled == "0" else "")
+
+  try:
+
+    # The key going up to the workbench list shows the icon of the active
+    # workbench. On the workbench list, where it does nothing, it shows the
+    # workbench grid icon, in color
+    if n == StreamDeckFolders.WORKBENCH_LIST:
+      if enabled == "0":
+        return StreamDeck.WORKBENCH
+      if not tbactions.active_workbench_action:
+        return None
+      return tbactions.actions[tbactions.active_workbench_action].\
+		icon_as_pil_image(force_enabled = True)
+
+    # Toolbar folders show the icon of their first tool, always as enabled
+    if n.startswith(StreamDeckFolders.OPEN_PREFIX):
+      t = n[len(StreamDeckFolders.OPEN_PREFIX):]
+      return tbactions.actions[tbactions.toolbar_actions[t][0]].\
+		icon_as_pil_image(force_enabled = True)
+
+    return tbactions.actions[n].icon_as_pil_image()
+
+  except Exception:
+    return None
+
+
+
+def process_key_event_pages(event_type, n):
+  """Process a key press on a key showing the command n in the pages layout
+  Return True if the Stream Deck keys need updating
+  """
+
+  global streamdeck
+  global tbactions
+  global pages
+  global update_actions
+  global next_actions_update_tstamp
+  global last_action_pressed
+
+  # Change the page
+  if n in ("PAGEPREV", "PAGENEXT"):
+    last_action_pressed = None
+    return pages.flip(1 if n == "PAGENEXT" else -1)
+
+  # Act upon a real action
+  last_action_pressed = tbactions.actions[n]
+
+  # Is the event a long key press?
+  if event_type == streamdeck.LONG_KEYPRESS:
+
+    # If the action is expandable, toggle its expansion and force-rebuild all
+    # the pages
+    if n in tbactions.expanded_actions:
+      tbactions.expanded_actions[n] = not tbactions.expanded_actions[n]
+      update_actions = True
+      next_actions_update_tstamp = 0
+
+    # If the action is a subaction of another action toggle the parent action's
+    # expansion and force-rebuild all the pages
+    elif tbactions.actions[n].issubactionof is not None and \
+		tbactions.actions[n].issubactionof in tbactions.expanded_actions:
+      tbactions.expanded_actions[tbactions.actions[n].issubactionof] = \
+		not tbactions.expanded_actions[tbactions.actions[n].issubactionof]
+      update_actions = True
+      next_actions_update_tstamp = 0
+
+  # If the event is a short key press and the action is enabled, execute it
+  elif tbactions.actions[n].enabled:
+    tbactions.actions[n].action.trigger()
+
+  return False
+
+
+
+def process_key_event_folders(event_type, n, enabled):
+  """Process a key press on a key showing the command n in the folders layout
+  Return True if the Stream Deck keys need updating
+  """
+
+  global streamdeck
+  global tbactions
+  global pages
+  global update_actions
+  global next_actions_update_tstamp
+  global last_action_pressed
+
+  long_press = event_type == streamdeck.LONG_KEYPRESS
+
+  # A key of the page under a menu - faded, or the tool the menu
+  # belongs to: close the menu
+  if n.startswith(pages.CLOSE_PREFIX):
+    last_action_pressed = None
+    return pages.go_back()
+
+  # Change the page within the current toolbar, menu or home page
+  if n in (pages.PAGEPREV, pages.PAGENEXT):
+    last_action_pressed = None
+    return enabled != "0" and pages.flip(1 if n == pages.PAGENEXT else -1)
+
+  # Go up one level - the top-left key. A long press goes straight back to
+  # the workbench page from a toolbar or a menu
+  if n in (pages.PAGEBACK, pages.WORKBENCH_LIST):
+    last_action_pressed = None
+    return pages.go_home() if long_press else pages.go_back()
+
+  # Open a toolbar
+  if n.startswith(pages.OPEN_PREFIX):
+    last_action_pressed = None
+    return pages.open_toolbar(n[len(pages.OPEN_PREFIX):])
+
+  # Act upon a real action
+  a = tbactions.actions.get(n)
+  if a is None:
+    return False
+
+  last_action_pressed = a
+
+  # A long press opens the action's menu if it has one, or closes the current
+  # menu if the action is a menu item
+  if long_press:
+    if tbactions.subactions.get(n):
+      return pages.open_menu(n)
+    if pages.in_menu:
+      return pages.go_back()
+    return False
+
+  # A short press on a workbench in the workbench list switches to it, then
+  # opens its page with its toolbars - picking a workbench is a one-time step,
+  # the list isn't left behind under the workbench page's levels. Read the
+  # toolbars again right away rather than showing the previous workbench's
+  # toolbars until the next check
+  if n.startswith(WORKBENCH_ACTION_PREFIX):
+    if a.enabled:
+      a.action.trigger()
+      pages.show_workbench(first_page = True)
+      update_actions = True
+      next_actions_update_tstamp = 0
+    return False
+
+  # A short press executes the action if it's enabled, then closes the current
+  # menu if the action is a menu item - like picking an item in a dropdown menu
+  if a.enabled:
+    a.action.trigger()
+    if pages.in_menu:
+      return pages.go_back()
+
+  return False
+
+
+
 def streamdeck_update():
   """Mirror the current content of the Freecad toolbars onto the stream deck
   """
@@ -130,6 +322,8 @@ def streamdeck_update():
   global tbactions
   global pages
   global useractivity
+  global displayed_keys
+  global recreate_pages
 
   global last_action_pressed
 
@@ -146,8 +340,8 @@ def streamdeck_update():
   if parameters_synchronized:
 
     # If the list of toolbars excluded from the Stream Deck display, the list
-    # of toolbars displayed on every Stream Deck page or any of the bracket
-    # colors have changed, force a full update of the list of toolbars and
+    # of toolbars displayed on every Stream Deck page or any of the bracket or
+    # mark colors have changed, force a full update of the list of toolbars and
     # toolbar actions, and rebuilding of the Stream Deck pages
     if params.excluded_toolbars != params.prev_excluded_toolbars or \
 	params.repeated_toolbars != params.prev_repeated_toolbars or \
@@ -156,7 +350,22 @@ def streamdeck_update():
 	params.bracket_color_page_nav_keys != \
 			params.prev_bracket_color_page_nav_keys or \
 	params.bracket_color_expandable_tools != \
-			params.prev_bracket_color_expandable_tools:
+			params.prev_bracket_color_expandable_tools or \
+	params.mark_color_menu_tools != params.prev_mark_color_menu_tools or \
+	params.mark_color_nested_folders != \
+			params.prev_mark_color_nested_folders or \
+	params.workbench_switcher != params.prev_workbench_switcher or \
+	params.background_workbench_list != \
+			params.prev_background_workbench_list or \
+	params.background_workbench_page != \
+			params.prev_background_workbench_page or \
+	params.background_toolbars != params.prev_background_toolbars or \
+	params.background_menus != params.prev_background_menus:
+      update_actions = True
+
+    # If the layout has changed, recreate the pages from scratch
+    if params.layout != params.prev_layout:
+      recreate_pages = True
       update_actions = True
 
     # Has any parameter affecting the connection with the Stream Deck device
@@ -220,7 +429,12 @@ def streamdeck_update():
     tbactions = ToolbarActions(main_window, action_changed)
     update_actions = True
 
-    pages = StreamDeckPages(streamdeck.nbkeys, streamdeck.nbdials == 0)
+    pages = make_pages()
+    recreate_pages = False
+
+    # What's currently displayed on each key, as a key string. Unknown at
+    # first, so all the keys get updated
+    displayed_keys = [None] * streamdeck.nbkeys
 
     useractivity = UserActivity(main_window)
 
@@ -237,12 +451,29 @@ def streamdeck_update():
       if show_help:
         print("-" * 79)
         print("Short-press an enabled button to activate the function")
-        print("Long-press buttons between {} brackets to expand/collapse them".
-		format(params.bracket_color_expandable_tools.lower()))
-        print("Buttons between {} brackets are available on all pages".
+        if isinstance(pages, StreamDeckFolders):
+          if params.workbench_switcher:
+            print("The top level lists the workbenches: press one to switch "
+		"to it and see its toolbars")
+          print("A workbench's page shows one button per toolbar: press one "
+		"to open that toolbar")
+          print("The top-left button goes up one level. Long-press it to go "
+		"straight back to the workbench's page")
+          print("Long-press buttons with a small triangle in the bottom-right "
+		"corner to open their menu")
+          if streamdeck.nbdials > 0:
+            print("Spin the dials to change pages")
+          else:
+            print("Toolbars with more than {} tools have several pages: "
+			"use the".format(streamdeck.nbkeys - 1))
+            print("arrow buttons at the bottom right to change pages")
+        else:
+          print("Long-press buttons between {} brackets to expand/collapse "
+			"them".format(params.bracket_color_expandable_tools.lower()))
+          print("Buttons between {} brackets are available on all pages".
 		format(params.bracket_color_repeated_toolbars.lower()))
-        if streamdeck.nbdials > 0:
-          print("Spin the dials to change pages")
+          if streamdeck.nbdials > 0:
+            print("Spin the dials to change pages")
 
         show_help = False
 
@@ -262,6 +493,18 @@ def streamdeck_update():
   # Is the Stream Deck still open?
   if streamdeck.is_open():
 
+    # If the layout has changed, replace the pages with pages in the new layout
+    # and collapse all the actions expanded in the pages layout
+    if recreate_pages:
+      pages = make_pages()
+      for n in tbactions.expanded_actions:
+        tbactions.expanded_actions[n] = False
+      update_actions = True
+      next_actions_update_tstamp = 0
+      recreate_pages = False
+
+    folders_layout = isinstance(pages, StreamDeckFolders)
+
     # Process Stream Deck input events if a current page is displayed
     if pages.current_page:
       keystrings = pages.current_page.split(pages.SK)
@@ -271,49 +514,15 @@ def streamdeck_update():
         # Is the event a key press?
         if event_type in (streamdeck.SHORT_KEYPRESS, streamdeck.LONG_KEYPRESS):
 
-          # Get the action name
-          n = keystrings[val].split(pages.SV)[1]
+          # Get the command associated with the key
+          _, n, enabled = keystrings[val].split(pages.SV)[:3]
 
           # Is the key occupied?
           if n:
-
-            # Change the page
-            if n in ("PAGEPREV", "PAGENEXT"):
-              last_action_pressed = None
-              if pages.flip(1 if n == "PAGENEXT" else -1):
-                update_streamdeck_keys = True
-
-            # Act upon a real action
-            else:
-              last_action_pressed = tbactions.actions[n]
-
-              # Is the event a long key press?
-              if event_type == streamdeck.LONG_KEYPRESS:
-
-                # If the action is expandable, toggle its expansion and
-                # force-rebuild all the pages
-                if n in tbactions.expanded_actions:
-                  tbactions.expanded_actions[n] = \
-			not tbactions.expanded_actions[n]
-                  update_actions = True
-                  next_actions_update_tstamp = 0
-
-                # If the action is a subaction of another action toggle the
-                # parent action's expansion and force-rebuild all the pages
-                elif tbactions.actions[n].issubactionof is not None and \
-			tbactions.actions[n].issubactionof in \
-					tbactions.expanded_actions:
-                  tbactions.expanded_actions[
-				tbactions.actions[n].issubactionof] = \
-			not tbactions.expanded_actions[
-				tbactions.actions[n].issubactionof]
-                  update_actions = True
-                  next_actions_update_tstamp = 0
-
-              # If the event is a short key press and the action is enabled,
-              # execute it
-              elif tbactions.actions[n].enabled:
-                tbactions.actions[n].action.trigger()
+            if (process_key_event_folders(event_type, n, enabled) \
+			if folders_layout else \
+		process_key_event_pages(event_type, n)):
+              update_streamdeck_keys = True
 
         # Is the event a dial spin?
         elif event_type == streamdeck.DIAL_SPIN_CLICKS:
@@ -329,7 +538,8 @@ def streamdeck_update():
 
       # Get the list of toolbars and toolbar actions currently displayed
       if tbactions.extract_toolbar_actions_from_gui(params.excluded_toolbars,
-							update_actions):
+				update_actions,
+				with_workbenches = params.workbench_switcher):
         update_actions = False
 
         # Find out the first of the new toolbars, if there are new toolbars, so
@@ -341,16 +551,31 @@ def streamdeck_update():
             new_toolbar = t
             break
 
-        # Rebuild the entire set of Stream Deck pages using the updated toolbars
-        # and actions
-        pages.rebuild_pages(tbactions, params.repeated_toolbars,
+        # Folders layout: rebuild the current page using the updated toolbars
+        # and actions. If new toolbars appeared - i.e. the workbench changed or
+        # a sketch is being edited - go back to the home page, which shows them
+        if folders_layout:
+          pages.rebuild(tbactions, params.repeated_toolbars,
+				params.mark_color_menu_tools,
+				params.mark_color_nested_folders,
+				go_home = new_toolbar is not None,
+				home_color = params.background_workbench_page,
+				toolbar_color = params.background_toolbars,
+				menu_color = params.background_menus,
+				workbenches_color = \
+					params.background_workbench_list)
+
+        # Pages layout: rebuild the entire set of Stream Deck pages using the
+        # updated toolbars and actions
+        else:
+          pages.rebuild_pages(tbactions, params.repeated_toolbars,
 				params.bracket_color_repeated_toolbars,
 				params.bracket_color_page_nav_keys,
 				params.bracket_color_expandable_tools)
 
-        # Find the new location of the current page in the newly-rebuilt pages
-        # and update it
-        pages.locate_current_page(new_toolbar, last_action_pressed)
+          # Find the new location of the current page in the newly-rebuilt
+          # pages and update it
+          pages.locate_current_page(new_toolbar, last_action_pressed)
 
         update_streamdeck_keys = True
 
@@ -360,42 +585,50 @@ def streamdeck_update():
     # Should we update the Stream Deck keys?
     if update_streamdeck_keys:
 
-      # Update the keys that need updating
-      if not pages.current_page:
+      # Get what each key should display. If we don't have a current page
+      # anymore, clear all the keys
+      blank_key = pages.SV * 7
+      keystrings = pages.current_page.split(pages.SK) \
+			if pages.current_page else \
+		[blank_key] * streamdeck.nbkeys
 
-        # Clear all the Stream Deck keys if we don't have a current page anymore
-        if pages.previous_current_page:
-          for keyno in range(streamdeck.nbkeys):
-            try:
-              streamdeck.set_key(keyno, None)
-            except:
-              streamdeck.close()
-              del(tbactions)
-              del(pages)
-              del(useractivity)
-              break
+      # Update the keys that display something different
+      for keyno, ks in enumerate(keystrings[:streamdeck.nbkeys]):
+        if ks != displayed_keys[keyno]:
 
-      # Update the keys to display the current page as needed
-      else:
-        keystrings = pages.current_page.split(pages.SK)
-        if pages.previous_current_page:
-          prev_keystrings = pages.previous_current_page.split(pages.SK)
+          # The last two fields are the colors of the left and right brackets
+          # in the pages layout, the mark and its color in the folders layout.
+          # In the folders layout, the marker ends with the level's background
+          # color
+          marker, n, enabled, _, tt, bt, f7, f8 = ks.split(pages.SV)
 
-        for keyno, ks in enumerate(keystrings):
-          if not pages.previous_current_page or ks != prev_keystrings[keyno]:
+          # Write the text of disabled tools in grey. The page keys get a
+          # dimmed icon instead, and keep their page number readable. The
+          # Workbench key at the top of the workbench list does nothing but
+          # stays in color
+          dimmed = enabled == "0" and n not in (StreamDeckFolders.PAGEPREV,
+					StreamDeckFolders.PAGENEXT,
+					StreamDeckFolders.PAGEBACK,
+					StreamDeckFolders.WORKBENCH_LIST)
 
-            _, n, _, _, tt, bt, lbc, rbc = ks.split(pages.SV)
-            img = n if n in ("", "PAGEPREV", "PAGENEXT") else \
-		tbactions.actions[n].icon_as_pil_image()
+          try:
+            if folders_layout:
+              streamdeck.set_key(keyno, key_image(n, enabled), tt, bt,
+					dimmed = dimmed, label_lines = 2,
+					mark = f7, mark_color = f8,
+					background = marker.rpartition(
+						StreamDeckFolders.BG_SEP)[2])
+            else:
+              streamdeck.set_key(keyno, key_image(n, enabled), tt, bt,
+					f7, f8, dimmed = dimmed)
+            displayed_keys[keyno] = ks
 
-            try:
-              streamdeck.set_key(keyno, img, tt, bt, lbc, rbc)
-            except:
-              streamdeck.close()
-              del(tbactions)
-              del(pages)
-              del(useractivity)
-              break
+          except:
+            streamdeck.close()
+            del(tbactions)
+            del(pages)
+            del(useractivity)
+            break
 
   # Determine if the user is active and set the brightness of the Stream Deck's
   # display accordingly
@@ -433,13 +666,11 @@ def start(FreeCAD):
   global streamdeck_was_open
   global show_help
   global retry_open_at_tstamp
+  global recreate_pages
 
   global timer
   global timer_reschedule_every_ms
   global next_actions_update_tstamp
-
-  # Determine the platform
-  is_win = sys.platform[0:3] == "win"
 
   # Determine the installation directory
   install_dir = os.path.dirname(__file__)
@@ -450,7 +681,7 @@ def start(FreeCAD):
   try:
     with open(as_installed("package.xml"), "r") as f:
       print("*** Stream Deck Addon version {} ***".
-		format(re.search("<version>\s*(\S+)\s*</version>",
+		format(re.search(r"<version>\s*(\S+)\s*</version>",
 			f.read())[1]))
   except Exception as e:
     pass
@@ -458,10 +689,23 @@ def start(FreeCAD):
   # Create the parameters
   params = UserParameters(FreeCAD)
 
-  # Get the name of the appropriate font to write in the Stream Deck keys
-  # depending on the platform
+  # Make sure the streamdeck module will find the HIDAPI library. This is only
+  # ever needed on macOS, where Homebrew and MacPorts install it outside of the
+  # directories the dynamic linker searches by default
+  hidapi_ok, hidapi_info = platform_support.ensure_hidapi_loadable()
+  if not hidapi_ok:
+    print("-" * 79)
+    for l in hidapi_info:
+      print(l)
+    print("-" * 79)
+
+  # Get the name of the preferred font to write in the Stream Deck keys
+  # depending on the platform. If it can't be loaded, the StreamDeck object
+  # falls back on the other fonts usually available on this platform
   font_filename = params.streamdeck_key_text_font_filename_windows \
-				if is_win else \
+				if platform_support.IS_WINDOWS else \
+			params.streamdeck_key_text_font_filename_macos \
+				if platform_support.IS_MACOS else \
 			params.streamdeck_key_text_font_filename_linux
 
   # Initialize the streamdeck object
@@ -469,10 +713,16 @@ def start(FreeCAD):
 				as_installed(params.prev_streamdeck_key_icon),
 				as_installed(params.next_streamdeck_key_icon),
 				as_installed(params.blank_streamdeck_key_icon),
-				as_installed(params.broken_streamdeck_key_icon))
+				as_installed(params.broken_streamdeck_key_icon),
+				font_dirs = [install_dir],
+				back_image_file = \
+					as_installed(params.back_streamdeck_key_icon),
+				workbench_image_file = \
+					as_installed(params.workbench_streamdeck_key_icon))
   streamdeck_was_open = None
   show_help = True
   retry_open_at_tstamp = 0
+  recreate_pages = False
 
   # Timer interval in milliseconds
   timer_reschedule_every_ms = round(params.check_streamdeck_every * 1000)

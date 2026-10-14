@@ -43,6 +43,11 @@ class StreamDeckPages():
     a ToolbarActions object
     """
 
+    # Short toolbar titles to display at the bottom of the keys, falling back
+    # on the toolbar names
+    titles = getattr(tbactions, "toolbar_short_titles", {})
+    title = lambda t: titles.get(t, t)
+
     # Get the lowercase color names
     ptbc = bracket_color_repeated_toolbars.lower()
     nkbc = bracket_color_page_nav_keys.lower()
@@ -68,7 +73,7 @@ class StreamDeckPages():
         keys.extend(["[toolbar]{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}".
 		format(n, 1 if tbactions.actions[n].enabled else 0,
 			tbactions.actions[n].iconid,
-			tbactions.actions[n].title, t,
+			tbactions.actions[n].title, title(t),
 			ptbc if i == 0 else \
 			exbc if n in tbactions.expanded_actions else "",
 			ptbc if i == last_action_i else \
@@ -121,7 +126,7 @@ class StreamDeckPages():
         keys = ["{}{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}{sv}{}".
 		format(t, n, 1 if tbactions.actions[n].enabled else 0,
 			tbactions.actions[n].iconid,
-			tbactions.actions[n].title, t,
+			tbactions.actions[n].title, title(t),
 			exbc if n in tbactions.expanded_actions else "",
 			exbc if not tbactions.expanded_actions.get(n, True) or \
 				tbactions.actions[n].islastsubaction else "",
@@ -143,7 +148,7 @@ class StreamDeckPages():
 							"{}{sv}PAGENEXT{sv}{sv}"
 							"{sv}{sv}{}{sv}{sv}{}".
 							format(page_marker(),
-								t, nkbc,
+								title(t), nkbc,
 								sv = self.SV))
 
             # Add new pages. Mark all the new pages' keys with a unique page
@@ -163,7 +168,7 @@ class StreamDeckPages():
                   new_page = new_page.replace("[pagenext]",
 						"{}{sv}PAGENEXT{sv}{sv}{sv}{sv}"
 						"{}{sv}{sv}{}".
-						format(page_marker(), t, nkbc,
+						format(page_marker(), title(t), nkbc,
 							sv = self.SV))
 
                 # Replace the first [pageprev] placeholder
@@ -172,7 +177,7 @@ class StreamDeckPages():
 						"{}{sv}PAGEPREV{sv}{sv}{sv}{sv}"
 						"{}{sv}{}{sv}".
 						format(page_marker(),
-							prev_page_toolbar,
+							title(prev_page_toolbar),
 							nkbc, sv = self.SV) \
 						if prev_page_toolbar else \
 						"{}{sv}{sv}{sv}{sv}"
@@ -185,7 +190,7 @@ class StreamDeckPages():
                   new_page = new_page.replace("[pageprev]",
 						"{}{sv}PAGEPREV{sv}{sv}{sv}{sv}"
 						"{}{sv}{}{sv}".
-						format(page_marker(), t, nkbc,
+						format(page_marker(), title(t), nkbc,
 							sv = self.SV))
 
               # Add the new page to the pages
