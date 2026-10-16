@@ -1,6 +1,15 @@
 # FreeCAD Stream Deck Addon
 ### Version 0.1.7
 
+⛔️ **THIS CODE IS ABANDONWARE** ⛔️                                              
+                                                                                 
+**I have almost completely given up coding because AI has made it utterly joyless.**
+
+**Besides, I realized this add-on makes no practical sense: it's cute, but driving FreeCAD with the keyboard is much faster than using a Stream Deck.**
+
+**Therefore I am not interested in maintaining this repo anymore, and I am not taking PRs - particularly since most of them are AI-generated nowadays.**  
+**If you'd like to fork it and continue development, by all means, be my guest!**
+
 * [Usage](#Usage)
 * [Installation](#Installation)
 * [Settings](#Settings)
